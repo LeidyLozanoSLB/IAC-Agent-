@@ -1,0 +1,288 @@
+# Upstream Sync
+# This repository is a downstream accelerator of jonathan-vella/azure-agentic-infraops.
+# Upstream ALWAYS wins for all files EXCEPT the paths listed in EXCLUDE_PATHS below.
+#
+# ALWAYS synced from upstream (upstream wins):
+#   .devcontainer/          .vscode/               .github/agents/
+#   .github/skills/         .github/instructions/  .github/prompts/
+#   .github/hooks/          .github/plugins/
+#   .github/copilot-instructions.md                .github/dependabot.yml
+#   .github/terminology-blocklist.json
+#   tools/                  assets/                package.json
+#   lefthook.yml            commitlint.config.js
+#   *.json/.yml/.toml/.txt (root config files)
+#
+# NEVER synced (accelerator-specific, excluded):
+#   agent-output/           → user-generated project outputs
+#   infra/bicep/            → user project Bicep templates
+#   infra/terraform/        → user project Terraform configs
+#   .github/workflows/      → keep repository workflows as-is (GITHUB_TOKEN cannot push workflow changes)
+#   .github/ISSUE_TEMPLATE/ → accelerator-specific issue templates
+#   .github/PULL_REQUEST_TEMPLATE.md → accelerator-specific PR template
+#   .github/CODEOWNERS      → accelerator-specific code owners
+#   .github/data/           → subscription-specific governance baseline data
+#   README.md               → accelerator-specific README
+#   CONTRIBUTING.md         → accelerator-specific contribution guide
+#   CONTRIBUTORS.md         → accelerator-specific contributors list
+#   CHANGELOG.md            → accelerator-specific changelog
+#   site/                   → accelerator-specific documentation site
+#   docs/                   → accelerator-specific docs
+#   logs/                   → local development/debug logs
+#
+# To sync workflow files from upstream, run locally: npm run sync:workflows
+#
+# Runs weekly and on manual dispatch. Always opens a PR for human review — no auto-merge.
+
+name: Upstream Sync
+
+"on":
+  schedule:
+    # Weekly on Sunday at 23:17 UTC (jittered off the top of the hour to avoid runner contention)
+    - cron: "17 23 * * 0"
+  workflow_dispatch:
+    inputs:
+      force_sync:
+        description: "Run sync even if no changes are detected"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Scope concurrency to the workflow only so a manual dispatch cancels an in-flight scheduled run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  UPSTREAM_REPO: jonathan-vella/azure-agentic-infraops
+  UPSTREAM_REF: main
+  SYNC_BRANCH: automation/upstream-sync
+  # Single source of truth for excluded paths. Consumed by the sync step and the leak-check step.
+  # Trailing slash for directories, no trailing slash for files. One path per line.
+  EXCLUDE_PATHS: |
+    .github/workflows/
+    .github/ISSUE_TEMPLATE/
+    .github/PULL_REQUEST_TEMPLATE.md
+    .github/CODEOWNERS
+    .github/data/
+    agent-output/
+    infra/bicep/
+    infra/terraform/
+    README.md
+    CONTRIBUTING.md
+    CONTRIBUTORS.md
+    CHANGELOG.md
+    site/
+    docs/
+    logs/
+
+jobs:
+  sync:
+    name: Sync Upstream Content
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        # Pinned by SHA for supply-chain hardening; Dependabot keeps this updated. (v5.0.1)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream branch
+        run: |
+          git remote remove upstream 2>/dev/null || true
+          git remote add upstream "https://github.com/${UPSTREAM_REPO}.git"
+          git fetch upstream "${UPSTREAM_REF}" --prune
+
+      - name: Apply upstream changes (upstream always wins)
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Parse EXCLUDE_PATHS env into an array — single source of truth for exclusions.
+          mapfile -t EXCLUDES < <(echo "${EXCLUDE_PATHS}" | sed '/^[[:space:]]*$/d' | awk '{$1=$1};1')
+
+          BASE_SHA=$(git rev-parse HEAD)
+          git checkout -B "${SYNC_BRANCH}"
+
+          # Mirror upstream tracked content so removed upstream paths are deleted here too.
+          git rm -r --quiet --ignore-unmatch .
+
+          # Take EVERYTHING from upstream into the working tree and index
+          git checkout "upstream/${UPSTREAM_REF}" -- .
+
+          # Restore each excluded path from the base branch.
+          for path in "${EXCLUDES[@]}"; do
+            git rm -r --cached --ignore-unmatch -- "$path" > /dev/null 2>&1 || true
+            rm -rf -- "$path" 2>/dev/null || true
+            if git ls-tree --name-only "${BASE_SHA}" -- "$path" | grep -q .; then
+              git checkout "${BASE_SHA}" -- "$path"
+            fi
+          done
+
+          # Stage everything and use a single cached diff for change detection.
+          git add -A
+
+          changed=false
+          if ! git diff --cached --quiet "${BASE_SHA}" --; then
+            changed=true
+          fi
+
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Log changed files and write step summary
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          echo "Files changed in this sync:"
+          git diff --cached --name-only | head -100 | sed 's/^/  /'
+          echo "  (showing first 100; may be more)"
+
+          UPSTREAM_SHA=$(git rev-parse "upstream/${UPSTREAM_REF}" 2>/dev/null | cut -c1-7 || echo "unknown")
+          TOTAL=$(git diff --cached --name-only | wc -l | tr -d ' ')
+          {
+            echo "## Upstream Sync Summary"
+            echo ""
+            echo "- Upstream: \`${UPSTREAM_REPO}@${UPSTREAM_REF}\` (\`${UPSTREAM_SHA}\`)"
+            echo "- Files changed: **${TOTAL}**"
+            echo ""
+            echo "<details><summary>Changed files (first 100)</summary>"
+            echo ""
+            echo '```'
+            git diff --cached --name-only | head -100
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Assert excluded paths are unchanged
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          leaked=$(git diff --cached --name-only | grep -E '^(\.github/workflows/|\.github/ISSUE_TEMPLATE/|\.github/PULL_REQUEST_TEMPLATE\.md$|\.github/CODEOWNERS$|\.github/data/|agent-output/|infra/bicep/|infra/terraform/|README\.md$|CONTRIBUTING\.md$|CONTRIBUTORS\.md$|CHANGELOG\.md$|site/|docs/|logs/)' || true)
+          if [ -n "$leaked" ]; then
+            echo "::error::Excluded paths were modified by sync."
+            echo "$leaked" | sed 's/^/  /'
+            exit 1
+          fi
+
+      - name: No-op path — report and close stale PR
+        if: steps.sync.outputs.changed != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_SYNC: ${{ github.event.inputs.force_sync }}
+        run: |
+          if [ "${FORCE_SYNC}" = "true" ]; then
+            echo "force_sync=true but no changes detected — skipping empty commit/PR to avoid no-op noise."
+          else
+            echo "No upstream changes after applying exclusions."
+          fi
+          {
+            echo "## Upstream Sync Summary"
+            echo ""
+            echo "No upstream changes after applying exclusions. Nothing to sync."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Close any stale open sync PR — upstream is fully merged.
+          EXISTING_PR=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "${SYNC_BRANCH}" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Closing stale sync PR #${EXISTING_PR} (no changes remain)."
+            gh pr close "$EXISTING_PR" \
+              --repo "${{ github.repository }}" \
+              --comment "Closing: upstream is fully in sync with this branch; no changes remain." || true
+          fi
+
+      - name: Commit and push sync branch
+        if: steps.sync.outputs.changed == 'true'
+        run: |
+          git commit -m "chore(sync): upstream sync from ${UPSTREAM_REPO}@${UPSTREAM_REF}
+
+          Synced at $(date -u +"%Y-%m-%d %H:%M UTC")
+          Excluded: agent-output/ infra/ .github/workflows/ .github/ISSUE_TEMPLATE/ .github/PULL_REQUEST_TEMPLATE.md .github/CODEOWNERS .github/data/ README.md CONTRIBUTING.md CONTRIBUTORS.md CHANGELOG.md site/ docs/ logs/"
+
+          set +e
+          push_output=$(git push --force origin "${SYNC_BRANCH}" 2>&1)
+          push_exit=$?
+          set -e
+
+          if [ "$push_exit" -ne 0 ]; then
+            echo "$push_output"
+            if echo "$push_output" | grep -q 'without `workflows` permission'; then
+              echo "::error::Push failed because workflow files changed and GITHUB_TOKEN cannot update workflows in this repo policy."
+              echo "::error::Use a PAT with workflow scope, or exclude .github/workflows/ from sync."
+            fi
+            exit "$push_exit"
+          fi
+
+      - name: Ensure PR labels exist
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "automation" --color "0075ca" --description "Automated workflow changes" --repo "${{ github.repository }}" 2>/dev/null || true
+          gh label create "upstream-sync" --color "e4e669" --description "Upstream template sync" --repo "${{ github.repository }}" 2>/dev/null || true
+
+      - name: Create or update pull request
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_SHA=$(git rev-parse "upstream/${UPSTREAM_REF}" 2>/dev/null | cut -c1-7 || echo "unknown")
+
+          PR_BODY="Automated full sync from \`${UPSTREAM_REPO}@${UPSTREAM_REF}\` (\`${UPSTREAM_SHA}\`). **Upstream always wins.**
+
+          Triggered by: \`${{ github.event_name }}\`
+
+          **Always synced from upstream:**
+          \`.devcontainer/\` · \`.vscode/\` · \`tools/\` · \`assets/\`
+          \`.github/agents/\` · \`.github/skills/\` · \`.github/instructions/\` · \`.github/prompts/\`
+          \`.github/hooks/\` · \`.github/plugins/\` · \`.github/copilot-instructions.md\`
+          All root config files (\`package.json\`, \`lefthook.yml\`, etc.)
+
+          **Excluded (accelerator-specific, never overwritten):**
+          \`agent-output/\` · \`infra/\` · \`.github/workflows/\` · \`.github/ISSUE_TEMPLATE/\` · \`.github/PULL_REQUEST_TEMPLATE.md\`
+          \`.github/CODEOWNERS\` · \`.github/data/\` · \`README.md\` · \`CONTRIBUTING.md\` · \`CONTRIBUTORS.md\` · \`CHANGELOG.md\`
+          \`site/\` · \`docs/\` · \`logs/\`
+
+          > Policy: always manual review, no auto-merge."
+
+          # Update existing open PR or create new one
+          EXISTING_PR=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "${SYNC_BRANCH}" \
+            --state open \
+            --json number \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updating existing PR #${EXISTING_PR}"
+            gh pr edit "$EXISTING_PR" \
+              --repo "${{ github.repository }}" \
+              --body "$PR_BODY"
+          else
+            echo "Creating new PR"
+            gh pr create \
+              --repo "${{ github.repository }}" \
+              --head "${SYNC_BRANCH}" \
+              --base "${{ github.ref_name }}" \
+              --title "chore(sync): upstream sync from ${UPSTREAM_REPO}" \
+              --body "$PR_BODY" \
+              --label "automation" \
+              --label "upstream-sync"
+          fi

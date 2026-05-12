@@ -1,0 +1,55 @@
+{
+  "$schema": "../tools/schemas/model-catalog.schema.json",
+  "description": "Allowed Copilot Chat model names used by agents. Canonical source for model-floor lint. Update this file when model availability changes or models deprecate.",
+  "last_updated": "2026-05-12",
+  "models": {
+    "Claude Opus 4.6": {
+      "vendor": "Anthropic",
+      "tier": "frontier",
+      "released": "2026-01",
+      "deprecated": false,
+      "use_for": [
+        "orchestration",
+        "context-optimization"
+      ],
+      "notes": "Highest-reasoning tier. Reserved for Orchestrator only."
+    },
+    "Claude Sonnet 4.6": {
+      "vendor": "Anthropic",
+      "tier": "balanced",
+      "released": "2026-01",
+      "deprecated": false,
+      "use_for": [
+        "requirements",
+        "architecture",
+        "iac-planning",
+        "design-diagrams",
+        "iac-codegen",
+        "governance",
+        "challenger-review"
+      ],
+      "notes": "Strong code generation at lower cost than Opus. Primary model for most agents."
+    },
+    "GPT-5.4": {
+      "vendor": "OpenAI",
+      "tier": "standard",
+      "released": "2026-02",
+      "deprecated": false,
+      "use_for": [
+        "deployment",
+        "as-built",
+        "validation-subagents",
+        "whatif-interpretation"
+      ],
+      "notes": "Strong structured output + tool use. Use for validators and deterministic subagents."
+    }
+  },
+  "floors": {
+    "rationale": "A `model_floor` is the minimum capability tier an agent may use. Agents may be pinned above their floor but never below. Floor enforcement catches silent downgrades; ceilings are changed via PR review.",
+    "tiers": {
+      "frontier": 4,
+      "balanced": 3,
+      "standard": 2
+    }
+  }
+}

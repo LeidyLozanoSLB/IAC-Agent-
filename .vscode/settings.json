@@ -1,0 +1,54 @@
+{
+  "chat.useAgentsMdFile": true,
+  "chat.useNestedAgentsMdFiles": true,
+  "chat.customAgentInSubagent.enabled": true,
+  "chat.agentFilesLocations": {
+    ".github/agents": true,
+    ".github/agents/_subagents": true
+  },
+  "chat.agentSkillsLocations": {
+    ".github/skills": true
+  },
+  "chat.hookFilesLocations": {
+    ".github/hooks/tool-guardian": true,
+    ".github/hooks/secrets-scanner": true,
+    ".github/hooks/session-telemetry": true,
+    ".github/hooks/subagent-validation": true,
+    ".github/hooks/tool-audit": true
+  },
+  "chat.useCustomAgentHooks": true,
+  "chat.useAgentSkills": true,
+  "json.schemas": [
+    {
+      "fileMatch": ["tools/registry/agent-registry.json"],
+      "url": "./tools/schemas/agent-registry.schema.json"
+    },
+    {
+      "fileMatch": [".github/data/governance-policy-baseline.fixture.json"],
+      "url": "./tools/schemas/governance-baseline.schema.json"
+    }
+  ],
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.rulers": [120],
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 120,
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "files.eol": "\n",
+  "editor.tabSize": 2,
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.rulers": [120],
+    "editor.wordWrap": "wordWrapColumn"
+  },
+  "[bicep]": {
+    "editor.tabSize": 2
+  },
+  "[powershell]": {
+    "editor.tabSize": 4
+  },
+  "[python]": {
+    "editor.tabSize": 4
+  },
+  "python.terminal.useEnvFile": true
+}

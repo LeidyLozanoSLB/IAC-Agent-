@@ -1,0 +1,193 @@
+# lefthook.yml - Git hooks configuration
+# Replaces Husky with a faster, dependency-free alternative
+# https://github.com/evilmartians/lefthook
+
+pre-commit:
+  # SAFETY: parallel is safe only while markdown-lint is the sole stage_fixed command.
+  # Adding another auto-fixer requires switching back to parallel: false or adding
+  # explicit file-lock coordination.
+  parallel: true
+  commands:
+    markdown-lint:
+      glob: "*.md"
+      run: |
+        # Get staged markdown files
+        STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
+        if [ -n "$STAGED_MD" ]; then
+          COUNT=$(echo "$STAGED_MD" | wc -l | tr -d ' ')
+          echo "📝 Validating $COUNT markdown file(s)..."
+          # Lint staged files only, suppress verbose Finding: output
+          RESULT=$(echo "$STAGED_MD" | xargs markdownlint-cli2 --no-globs 2>&1)
+          # Show only Summary and errors, skip Finding/Linting lines
+          echo "$RESULT" | grep -v -E '^(Finding:|Linting:)' || true
+        else
+          echo "ℹ️  No markdown files to validate"
+        fi
+      stage_fixed: true
+
+    link-check:
+      glob: "site/src/content/docs/**/*.{md,mdx}"
+      run: |
+        # Get staged site docs markdown files
+        STAGED_DOCS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^site/src/content/docs/.*\.(md|mdx)$' || true)
+        if [ -n "$STAGED_DOCS" ]; then
+          echo "🔗 Checking links in $(echo "$STAGED_DOCS" | wc -l | tr -d ' ') doc file(s)..."
+          # Use npx to run from local node_modules (avoids Node.js 24 global install bug)
+          echo "$STAGED_DOCS" | xargs -I {} npx markdown-link-check {} --config .markdown-link-check-site.json --quiet
+        else
+          echo "ℹ️  No docs to check links"
+        fi
+
+    h2-sync:
+      glob: "{.github/skills/azure-artifacts/SKILL.md,.github/instructions/azure-artifacts*,tools/scripts/validate-artifacts*}"
+      run: |
+        STAGED_SYNC=$(git diff --cached --name-only --diff-filter=ACM | grep -E '(SKILL\.md|azure-artifacts|validate-artifacts)' || true)
+        if [ -n "$STAGED_SYNC" ]; then
+          echo "🔄 Checking H2 heading sync across sources..."
+          npm run validate:artifacts
+        else
+          echo "ℹ️  No H2-source files to sync-check"
+        fi
+      fail_text: |
+        ❌ H2 heading sync failed!
+
+        Sources must match: SKILL.md ↔ azure-artifacts ↔ validator
+        🔧 Run: npm run lint:h2-sync
+
+    artifact-validation:
+      glob: "{agent-output,.github/skills/azure-artifacts/templates}/**/*.md"
+      run: |
+        # Check if any agent-output artifacts are staged
+        STAGED_ARTIFACTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^agent-output/.*\.md$' || true)
+        if [ -n "$STAGED_ARTIFACTS" ]; then
+          COUNT=$(echo "$STAGED_ARTIFACTS" | wc -l | tr -d ' ')
+          echo "📋 Validating $COUNT artifact(s) against templates..."
+          # Run full artifact validation - blocks on any H2 mismatch
+          if ! npm run validate:artifacts; then
+            echo ""
+            echo "❌ Artifact template validation failed!"
+            echo ""
+            echo "🔧 To fix:"
+            echo "   1. Check .github/instructions/azure-artifacts.instructions.md"
+            echo "   2. Use EXACT H2 headings from that file"
+            echo "   3. Run: npm run fix:artifacts -- <file> --apply"
+            echo "   4. Re-stage and commit"
+            echo ""
+            exit 1
+          fi
+        else
+          echo "ℹ️  No agent-output artifacts to validate"
+        fi
+      fail_text: |
+        ❌ Artifact H2 structure validation failed!
+
+        📚 Reference: .github/instructions/azure-artifacts.instructions.md
+        🔧 Auto-fix: npm run fix:artifacts -- <file> --apply
+
+    agents:
+      glob: "**/*.agent.md,**/*.prompt.md"
+      run: |
+        STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(agent|prompt)\.md$' || true)
+        if [ -n "$STAGED" ]; then
+          COUNT=$(echo "$STAGED" | wc -l | tr -d ' ')
+          echo "🤖 Validating $COUNT agent/prompt file(s)..."
+          npm run validate:agents
+        else
+          echo "ℹ️  No agent/prompt files to validate"
+        fi
+      fail_text: |
+        ❌ Agent validation failed!
+
+        Checks: frontmatter syntax, model-prompt alignment, body size (<400 lines),
+        language density (<5 absolute terms per 100 lines)
+        📚 Reference: .github/instructions/agent-authoring.instructions.md
+
+    instructions:
+      glob: "**/*.instructions.md,{.github/agents/**,.github/skills/**,.github/instructions/**}"
+      run: |
+        STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(instructions|agent)\.md$|SKILL\.md$' || true)
+        if [ -n "$STAGED" ]; then
+          COUNT=$(echo "$STAGED" | wc -l | tr -d ' ')
+          echo "📋 Validating $COUNT instruction/reference file(s)..."
+          npm run validate:instruction-checks
+        else
+          echo "ℹ️  No instruction files to validate"
+        fi
+      fail_text: |
+        ❌ Instruction validation failed!
+
+        Checks: frontmatter syntax (description, applyTo only), cross-reference integrity
+        📚 Run: npm run validate:instruction-checks
+
+    secrets-baseline:
+      run: |
+        if command -v gitleaks &>/dev/null; then
+          gitleaks protect --staged --redact --no-banner
+        else
+          echo "⚠️  gitleaks not installed — skipping secret scan (CI will enforce)"
+        fi
+      fail_text: |
+        ❌ Secrets detected in staged files!
+        🔧 Remove secrets before committing. See AGENTS.md for gitleaks setup.
+
+    iac-security-baseline:
+      glob: "infra/bicep/**/*.bicep"
+      run: |
+        STAGED_IAC=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.bicep$' || true)
+        if [ -n "$STAGED_IAC" ]; then
+          echo "🔒 Checking IaC security baseline..."
+          npm run validate:iac-security-baseline
+        else
+          echo "ℹ️  No IaC files to security-check"
+        fi
+      fail_text: |
+        ❌ IaC security baseline violation!
+
+        🔧 Fix: TLS 1.2+, HTTPS-only, no public blob access, managed identity
+        📚 Reference: AGENTS.md Security Baseline section
+
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no -- commitlint --edit {1}
+      fail_text: |
+        ❌ Commit message validation failed!
+
+        📖 Conventional Commits format required:
+           <type>[optional scope]: <description>
+
+           Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+
+           Examples:
+             feat: add new Azure App Service module
+             fix(bicep): correct storage account naming
+             docs: update README with deployment steps
+
+# Diff-based pre-push validation — runs only matching domain validators in parallel
+pre-push:
+  parallel: true
+  commands:
+    branch-naming:
+      run: bash tools/scripts/validate-branch-naming.sh
+      fail_text: |
+        ❌ Branch naming convention violated!
+
+        🔧 Rename your branch using an approved prefix:
+           docs/, agents/, skills/, infra/, tools/scripts/, instructions/,
+           fix/, feat/, chore/, ci/, refactor/, perf/, test/, build/, revert/
+
+    branch-scope:
+      run: bash tools/scripts/validate-branch-scope.sh
+      fail_text: |
+        ❌ Branch scope violation!
+
+        Domain-scoped branches (docs/, agents/, skills/, etc.) should only
+        modify files within their domain. Use feat/ or fix/ for cross-cutting changes.
+
+    diff-based-check:
+      run: bash tools/scripts/diff-based-push-check.sh
+      fail_text: |
+        ❌ Pre-push validation failed!
+
+        🔧 Run the failing validator manually to see details.
+        Only validators for changed file types were executed.

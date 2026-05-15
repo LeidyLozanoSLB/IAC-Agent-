@@ -18,10 +18,10 @@ Generate visual architecture diagrams and formal ADRs based on the approved arch
 1. Read `agent-output/{project}/00-session-state.json` to confirm Step 2 is complete.
 2. Read `agent-output/{project}/02-architecture-assessment.md` for the approved architecture.
 3. Read `agent-output/{project}/01-requirements.md` for context.
-4. Read `.github/skills/drawio/SKILL.md` for architecture diagram conventions.
+4. <!-- TODO: Replace with Mermaid diagram generation (drawio MCP not available). Once mermaid skill is added to .github/skills/, read it here instead. -->
 5. Read `.github/skills/python-diagrams/SKILL.md` if generating WAF/cost charts.
 6. Read `.github/skills/azure-adr/SKILL.md` for ADR format and structure.
-7. Generate architecture diagram: `agent-output/{project}/03-des-diagram.drawio`.
+7. <!-- TODO: Generate Mermaid architecture diagram for `agent-output/{project}/` once mermaid skill is added to .github/skills/. -->
 8. Generate cost distribution chart: `agent-output/{project}/03-des-cost-distribution.py`.
 9. Generate ADRs for key architecture decisions: `agent-output/{project}/03-des-adr-*.md`.
 10. Update `agent-output/{project}/00-session-state.json`: mark Step 3 `complete` or `skipped`.

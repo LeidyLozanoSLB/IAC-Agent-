@@ -59,7 +59,7 @@ understand what has already been reviewed and which decisions to scrutinize.
    | `03-des-cost*` | `cost-estimate` |
    | `04-implementation-plan*` | `implementation-plan` |
    | `04-governance*` | `governance-constraints` |
-   | `infra/bicep/*` or `infra/terraform/*` | `iac-code` |
+   | `infra/bicep/*` | `iac-code` |
    | `06-deployment*` | `deployment-preview` |
 3. **Extract `project_name`** from the artifact path (the folder name under `agent-output/`)
 4. **Determine review parameters** from user input or defaults:

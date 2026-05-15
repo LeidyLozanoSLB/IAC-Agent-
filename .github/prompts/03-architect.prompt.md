@@ -29,11 +29,13 @@ cost estimates.
 5. Evaluate requirements against all 5 WAF pillars (Security, Reliability, Performance, Cost,
    Operations).
 6. Recommend specific Azure services and SKUs justified by requirements, budget, and complexity.
-7. Use the Azure Pricing MCP tools to generate real cost estimates for both steady-state and
-   peak-season usage.
+7. Look up Azure pricing documentation to estimate costs for both steady-state and peak-season
+   usage. Do NOT rely on parametric knowledge — verify each price against Azure documentation.
+   Azure Pricing MCP is not available in this configuration.
 8. Identify architecture trade-offs and document them with WAF pillar impact.
 9. Save the assessment to `agent-output/{project}/02-architecture-assessment.md`.
 10. Save the cost estimate to `agent-output/{project}/03-des-cost-estimate.md`.
+    Note: pricing is based on Azure documentation only — no MCP pricing tools are available.
 11. Run adversarial review passes per the complexity matrix in session state
     (standard = 2 passes, complex = 3 passes).
 12. Apply all `must_fix` findings and re-validate.

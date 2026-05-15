@@ -23,7 +23,7 @@ handoffs:
     send: false
   - label: "▶ Generate Cost Estimate"
     agent: 03-Architect
-    prompt: "Generate a detailed cost estimate for the architecture. Use Azure Pricing MCP tools and save to `agent-output/{project}/03-des-cost-estimate.md`."
+    prompt: "Generate a detailed cost estimate for the architecture. Look up prices from Azure documentation and save to `agent-output/{project}/03-des-cost-estimate.md`."
     send: false
   - label: "Step 3.5: Governance Discovery"
     agent: 04g-Governance
@@ -39,7 +39,7 @@ handoffs:
     send: false
   - label: "↩ Return to Orchestrator"
     agent: 01-Orchestrator
-    prompt: "Returning from Step 3 (Design). Architecture diagrams, ADRs, and optional cost estimates generated. Artifacts at `agent-output/{project}/03-des-*.md` and `agent-output/{project}/03-des-diagram.drawio`. Ready for governance discovery or IaC planning."
+    prompt: "Returning from Step 3 (Design). ADRs generated. Artifacts at `agent-output/{project}/03-des-*.md`. TODO: Design diagrams will use Mermaid (drawio MCP not available). Ready for governance discovery or IaC planning."
     send: false
 ---
 
@@ -70,9 +70,9 @@ Do not generate IaC code, modify architecture assessments, or make infrastructur
 <output_contract>
 Expected output in `agent-output/{project}/`:
 
-- `03-des-diagram.drawio` — Architecture diagram (Draw.io format)
 - `03-des-adr-NNNN-{title}.md` — Architecture Decision Records
 - `03-des-cost-estimate.md` — Cost estimate handoff (optional)
+<!-- TODO: Design diagrams will use Mermaid (drawio MCP not available in this version). -->
   </output_contract>
 
 ## Scope
@@ -88,8 +88,8 @@ Before doing any work, read these skills:
 
 1. Read `.github/skills/azure-defaults/SKILL.digest.md` — regions, tags, naming
 2. Read `.github/skills/azure-artifacts/SKILL.digest.md` — H2 template for `03-des-cost-estimate.md`
-3. Read `.github/skills/drawio/SKILL.md` — Draw.io diagram generation (default for architecture)
-4. Read `.github/skills/azure-adr/SKILL.md` — ADR format and conventions
+3. Read `.github/skills/azure-adr/SKILL.md` — ADR format and conventions
+<!-- TODO: When the mermaid skill is added back to .github/skills/, read that for Mermaid diagram generation. -->
 
 If a diagram task requires detail not covered by the skill (e.g., Python chart templates,
 swim-lane layouts, or edge-label rules), load additional references on demand —
@@ -100,132 +100,19 @@ do NOT load them at startup.
 **Do:**
 
 - Read `02-architecture-assessment.md` before generating any design artifact
-- Use the `drawio` skill for all architecture diagram generation
-- Use the `python-diagrams` skill for WAF/cost/compliance charts
 - Use the `azure-adr` skill for Architecture Decision Records
-- Use Draw.io MCP tools with transactional mode and batch-only calls
-- Use `shape_name` in `add-cells` for Azure icons — never specify width/height/style for shaped vertices
-- Save exported diagrams via terminal command, not LLM read-back
-- Save diagrams to `agent-output/{project}/03-des-diagram.drawio`
-- Regenerate poor diagrams from a clean base layout instead of incrementally patching a broken file.
-  **This is faster than iterative fixes** — if a diagram needs more than 2 post-save
-  adjustments, `clear-diagram` and rebuild from scratch.
-- Prefer the enterprise reference-architecture visual style:
-  left-to-right flow, cross-cutting services at bottom (no edges), orthogonal routing
-- Prefer fewer, larger service tiles over many small cards so the result stays readable
-  at normal viewing size
-- Keep Step 3 diagrams conceptual: service names and major boundaries matter;
-  SKU, tier, node-count, and product-version detail usually belongs in the
-  architecture assessment or implementation plan, not in the diagram tiles
-- Keep ingress and perimeter services visually anchored to the zone they serve;
-  do not leave single important tiles floating in leftover space between title,
-  legend, and zone boundaries
 - Save ADRs to `agent-output/{project}/03-des-adr-NNNN-{title}.md`
 - Save cost estimates to `agent-output/{project}/03-des-cost-estimate.md`
-- Include all Azure resources from the architecture in diagrams
-- Use Fabric icons for Fabric-native services when the architecture includes Microsoft Fabric
-- Keep the canvas structured and intentional, with enough internal spacing that
-  the diagram reads as a designed architecture artifact rather than a compressed sketch
-- Limit connector annotations to the few labels that materially improve comprehension
-- Keep peer cards in the same supporting-services band on a shared card spec:
-  identical width, height, and baseline alignment unless they represent different classes of service
 - Match H2 headings from azure-artifacts skill for cost estimates
 - Update `agent-output/{project}/README.md` — mark Step 3 complete, add your artifacts (see azure-artifacts skill)
+<!-- TODO: Design diagrams will use Mermaid (drawio MCP not available in this version).
+     Once the mermaid skill is added to .github/skills/, this agent will generate Mermaid diagrams. -->
 
 **Avoid:**
 
 - Creating Bicep or infrastructure code
 - Modifying existing architecture assessment
-- Generating diagrams without reading architecture assessment first
-- Using generic placeholder resources — use actual project resources
-- Mixing Azure substitute icons into Fabric services when a Fabric icon is available
-- Leaving excessive white space around the main topology or stretching connectors
-  across empty canvas
-- Using more connector colors than the legend can explain, or mixing semantics
-  without a legend
-- Over-compressing the architecture so labels, subtitles, legend text, or footer text
-  become difficult to read at 100% zoom
-- Adding grouped dependency regions that contain little or no meaningful content
-- Packing service cards with SKU names, tiers, counts, or policy versions that do not
-  materially change how the architecture is understood
-- Leaving small mid-canvas flow labels near zone titles or in open whitespace where
-  they read like stray text instead of intentional annotation
-- Treating the supporting-services band as an afterthought with tiny cards,
-  tiny labels, or insufficient separation from the footer
-- Letting peer support cards in the same band drift to different widths or heights,
-  which weakens the visual rhythm and makes the band look unfinished
-- Routing external partner or data-sharing lines with looping or awkward detours
-
-## Draw.io MCP-Driven Diagram Workflow
-
-When generating a `.drawio` diagram, use the Draw.io MCP server tools.
-The server auto-sends detailed layout rules, batch workflow, and conventions
-via its `instructions` field — follow those for spacing, grid alignment,
-edge routing, group sizing, and cross-cutting service placement.
-
-**CRITICAL: The MCP server is NOT stateful between calls.** You MUST pass
-`diagram_xml` from each tool response to the next tool call. Save the XML
-to a temp file between steps via terminal command to avoid inflating context.
-
-1. **Search shapes** — Call `search-shapes` ONCE with ALL Azure service names
-   in the `queries` array (main flow + cross-cutting services).
-
-2. **Create groups** — Call `create-groups` ONCE with ALL container cells
-   (VNets, subnets, resource groups, Fabric zone). Set `text: ""` for groups;
-   create a separate bold text vertex above each group with the label.
-   Note the group cell IDs from the response (e.g., `cell-2` through `cell-6`).
-
-3. **Add cells** — Call `add-cells` ONCE with ALL vertices AND edges in one
-   `cells` array. **Pass `diagram_xml` from step 2** so group IDs are visible.
-   Set `transactional: true` for multi-step diagrams:
-   - Use `shape_name` for Azure icons (e.g., `"Front Doors"`, `"Key Vaults"`)
-   - Do NOT specify `width`, `height`, or `style` for shaped vertices
-   - Use `temp_id` on vertices for edge cross-references
-   - **Target edges at icon vertices** (via `temp_id`), never at group cell IDs
-     (`cell-2`, `cell-3`, etc.) — edges to groups cause the router to draw
-     through every intervening group boundary
-   - List vertices before edges in the array
-   - Target edges at specific vertices (not groups) when possible
-   - Cross-cutting services at bottom (120px below main flow, no edges)
-
-4. **Extract cell IDs** — Use a terminal command to extract only the
-   `tempId → cell.id` mapping from the large JSON response. Do NOT read
-   the full JSON back through the LLM:
-
-   ```bash
-   python3 -c "import json; d=json.load(open('<json-path>')); \
-     [print(r.get('tempId',''), '->', r['cell']['id']) \
-      for r in d['data']['results'] if r and r.get('success') and r.get('tempId')]"
-   ```
-
-   Also save `diagram_xml` from the response to a temp file for the next step.
-
-5. **Assign to groups** — Call `add-cells-to-group` ONCE with ALL assignments.
-   **Pass `diagram_xml` from step 3** (the full XML with both groups and cells).
-   Use the actual cell IDs from step 4 (placeholder IDs differ between batches).
-   Server auto-converts coordinates.
-
-6. **Finish** — Call `finish-diagram` with `compress: true`, **passing
-   `diagram_xml` from step 5**. This resolves placeholders to real SVGs.
-
-7. **Save + strip anchors** — Use the helper script (handles decompression,
-   `mxGraphModel` embedding, AND edge anchor/waypoint stripping):
-
-   ```bash
-   python3 tools/scripts/save-drawio.py '<json-path>' 'agent-output/{project}/03-des-diagram.drawio'
-   ```
-
-8. **Post-save cleanup** — Run the bundled cleanup script:
-
-   ```bash
-   python3 .github/skills/drawio/scripts/cleanup-drawio.py 'agent-output/{project}/03-des-diagram.drawio'
-   ```
-
-9. **Validate** — Run `node tools/scripts/validate-drawio-files.mjs` to confirm.
-
-- Leaving service labels left-aligned or inconsistent across peer boxes
-- Leaving stray vector/icon elements outside the intended diagram layout
-- Skipping the attribution header on output files
+- Attempting to generate diagrams (drawio MCP not available in this version)
 
 ## Prerequisites Check
 
@@ -273,31 +160,8 @@ Proceeding to {next artifact}.
 
 ## Workflow
 
-### Diagram Generation (Draw.io — Default)
-
-For projects requiring **multiple diagrams** (e.g., Step 4 dependency + runtime diagrams),
-generate each diagram as a separate phase with a context checkpoint between them.
-
-1. Read `02-architecture-assessment.md` for resource list, boundaries, and flows
-2. Read `01-requirements.md` for business-critical paths and actor context
-3. Use Draw.io MCP `search-shapes` to find all needed Azure service icons
-4. Use `create-groups` for VNets/subnets/RGs (text: '' for groups, separate label vertex above)
-5. Use `add-cells` with ALL vertices AND edges in one call (transactional: true)
-   (not by incrementally repairing a broken geometry)
-6. Extract cell IDs via terminal command (do NOT read full JSON through LLM)
-7. Use `add-cells-to-group` for all group assignments in one call
-8. Call `finish-diagram` with compress: true
-9. Save via `python3 tools/scripts/save-drawio.py <json-path> <output.drawio>`
-10. Post-save cleanup: `python3 .github/skills/drawio/scripts/cleanup-drawio.py <output.drawio>`
-11. Validate via `node tools/scripts/validate-drawio-files.mjs`
-12. Left-to-right flow, cross-cutting services at bottom (no edges to them)
-13. Orthogonal edges, generous spacing (120px H, 80px V minimum)
-14. Groups with text: '' and separate bold label vertex above
-15. Keep Step 3 diagrams conceptual: service names and major boundaries matter
-16. Quality check (>= 9/10); if below, rebuild and retry (max 2 attempts)
-17. **Context checkpoint** — summarize diagram result before next artifact
-
-**Checkpoint** (MANDATORY): `apex-recall checkpoint <project> 3 phase_2_diagram --json`
+<!-- TODO: Diagram generation will use Mermaid (drawio MCP not available in this version).
+     Implementation pending when mermaid skill is added to .github/skills/. -->
 
 ### ADR Generation
 
@@ -321,9 +185,9 @@ generate each diagram as a separate phase with a context checkpoint between them
 
 | File                      | Purpose                               |
 | ------------------------- | ------------------------------------- |
-| `03-des-diagram.drawio`   | Editable Draw.io architecture diagram |
 | `03-des-adr-NNNN-*.md`    | Architecture Decision Records         |
 | `03-des-cost-estimate.md` | Cost estimate (via Architect handoff) |
+<!-- TODO: Design diagrams will use Mermaid (drawio MCP not available). -->
 
 Include attribution: `> Generated by design agent | {YYYY-MM-DD}`
 
@@ -331,9 +195,9 @@ Include attribution: `> Generated by design agent | {YYYY-MM-DD}`
 
 ```text
 agent-output/{project}/
-├── 03-des-diagram.drawio      # Architecture diagram (Draw.io)
-├── 03-des-adr-NNNN-{slug}.md      # Architecture Decision Records (1+ files)
-└── 03-des-cost-estimate.md        # Cost estimate (via Architect handoff)
+├── 03-des-adr-NNNN-{slug}.md  # Architecture Decision Records (1+ files)
+└── 03-des-cost-estimate.md    # Cost estimate (via Architect handoff)
+<!-- TODO: Design diagrams will use Mermaid (drawio MCP not available). -->
 ```
 
 Validation: `npm run lint:artifact-templates` must pass for all output files.

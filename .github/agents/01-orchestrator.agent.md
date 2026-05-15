@@ -51,11 +51,11 @@ handoffs:
     send: true
   - label: "Step 2: Architecture Assessment"
     agent: 03-Architect
-    prompt: "Create a WAF assessment with cost estimates based on the requirements in `agent-output/{project}/01-requirements.md`. The requirements document contains the project scope, NFRs, compliance needs, and budget. Your output is `02-architecture-assessment.md` (WAF scores + SKU recommendations) and `03-des-cost-estimate.md` (MCP-verified pricing). Save both to `agent-output/{project}/`."
+    prompt: "Create a WAF assessment based on the requirements in `agent-output/{project}/01-requirements.md`. The requirements document contains the project scope, NFRs, compliance needs, and budget. Your output is `02-architecture-assessment.md` (WAF scores + SKU recommendations) and `03-des-cost-estimate.md` (pricing from Azure documentation). Save both to `agent-output/{project}/`."
     send: true
   - label: "Step 3: Design Artifacts"
     agent: 04-Design
-    prompt: "Generate architecture diagrams and ADRs based on the architecture assessment in `agent-output/{project}/02-architecture-assessment.md`. Diagrams must be Draw.io outputs (`03-des-diagram.drawio`) with quality score >= 9/10. This step is optional - you can skip to Step 3.5."
+    prompt: "Generate ADRs based on the architecture assessment in `agent-output/{project}/02-architecture-assessment.md`. Save ADRs as `agent-output/{project}/03-des-*.md`. TODO: Design diagrams will use Mermaid (drawio MCP not available). This step is optional — you can skip to Step 3.5."
     send: false
   - label: "Step 3.5: Governance Discovery"
     agent: 04g-Governance
@@ -236,7 +236,7 @@ in `workflow-graph.json`). For complex projects, the Orchestrator asks whether t
 | Check for existing artifacts before starting fresh                   | Overwrite prior progress without checking for existing artifacts  |
 | Delegate autonomous steps via `#runSubagent`                         | Skip approval gates — EVER                                        |
 | Use handoffs (not subagents) for interactive steps (1, 4)            | Use `#runSubagent` for steps that need `askQuestions`             |
-| Recommend session break at Gates 2 and 3                             | Ask about IaC tool (Bicep/Terraform) — Requirements handles this  |
+| Recommend session break at Gates 2 and 3                             | Ask about IaC tool — always Bicep; Requirements sets it           |
 | Track progress via artifact files in `agent-output/{project}/`       | Deploy without validation (Deploy agent handles preflight)        |
 | Summarize subagent results concisely                                 | Modify files directly — delegate to appropriate agent             |
 | Create `agent-output/{project}/` + init session via `apex-recall`    | Include raw subagent dumps                                        |

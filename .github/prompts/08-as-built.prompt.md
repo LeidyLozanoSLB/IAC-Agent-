@@ -28,7 +28,7 @@ Before running, confirm these artifacts exist in `agent-output/{project}/`:
 5. Generate the following documents in `agent-output/{project}/`:
    - `07-design-document.md` — comprehensive design document.
    - `07-operations-runbook.md` — day-2 operational procedures.
-   - `07-ab-cost-estimate.md` — as-built cost estimate (use Azure Pricing MCP).
+   - `07-ab-cost-estimate.md` — as-built cost estimate (manual estimate only — Azure Pricing MCP not available; list deployed SKUs without dollar figures).
    - `07-compliance-matrix.md` — compliance control mapping.
    - `07-backup-dr-plan.md` — backup and disaster recovery plan.
    - `07-resource-inventory.md` — complete resource inventory.

@@ -12,8 +12,6 @@ agents:
     "06b-Bicep CodeGen",
     "07b-Bicep Deploy",
     "08-As-Built",
-    "06t-Terraform CodeGen",
-    "07t-Terraform Deploy",
     "challenger-review-subagent",
   ]
 tools:
@@ -150,7 +148,7 @@ Review pass counts follow the `simple` row of the review matrix in
      6. If the array is empty or contains only Audit/Modify policies:
         proceed without full governance discovery (documented exception).
    - Single deployment phase (no phased deployment needed)
-2. Immediately delegate to the IaC CodeGen agent (06b or 06t) via `#runSubagent`
+2. Immediately delegate to the `06b-Bicep CodeGen` agent via `#runSubagent`
    - **Accepted risk**: No intermediate approval gate between Plan and Code
      (production workflow has `gate-3` here). This is acceptable for `simple`
      projects only because: single deployment phase, ≤3 resources, 1-pass
@@ -161,7 +159,7 @@ Review pass counts follow the `simple` row of the review matrix in
 
 ### Step 4: Deploy (same as standard)
 
-Delegate to Deploy agent (07b or 07t). What-if/plan is still mandatory.
+Delegate to `07b-Bicep Deploy` agent. What-if/plan is still mandatory.
 User approval is still required.
 Per the review matrix, deploy adversarial review is **skipped** for
 simple projects with no open findings.

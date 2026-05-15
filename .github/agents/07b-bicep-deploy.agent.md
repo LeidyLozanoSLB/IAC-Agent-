@@ -53,7 +53,7 @@ handoffs:
     send: true
   - label: "▶ Generate As-Built Diagram"
     agent: 08-As-Built
-    prompt: "Use the drawio skill and MCP tools to generate an as-built architecture diagram documenting deployed infrastructure. Use transactional mode. Output `agent-output/{project}/07-ab-diagram.drawio` with quality score >= 9/10. Follow batch-only workflow from the drawio skill."
+    prompt: "TODO: Design diagrams will use Mermaid (drawio MCP not available). Once the mermaid skill is added to .github/skills/, this handoff will generate a Mermaid as-built architecture diagram."
     send: true
   - label: "↩ Fix Deployment Issues"
     agent: 06b-Bicep CodeGen

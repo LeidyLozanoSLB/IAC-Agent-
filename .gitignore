@@ -105,6 +105,3 @@ crash.*.log
 
 # Governance baseline raw debug file (not committed — local troubleshooting only)
 .github/data/governance-policy-raw.json
-
-# AI
-.claude/

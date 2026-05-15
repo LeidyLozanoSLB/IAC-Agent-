@@ -159,7 +159,6 @@
       "produces": [
         "07-design-document.md",
         "07-operations-runbook.md",
-        "07-ab-cost-estimate.md",
         "07-compliance-matrix.md",
         "07-backup-dr-plan.md",
         "07-resource-inventory.md",
@@ -169,7 +168,6 @@
       "parallel_substeps": [
         "design-document",
         "operations-runbook",
-        "cost-estimate",
         "compliance-matrix",
         "backup-dr-plan",
         "resource-inventory",

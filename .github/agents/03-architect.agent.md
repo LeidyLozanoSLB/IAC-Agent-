@@ -33,7 +33,7 @@ handoffs:
     send: true
   - label: "▶ Generate Architecture Diagram"
     agent: 04-Design
-    prompt: "Use the drawio skill and MCP tools to generate an Azure architecture diagram for the assessed design. Use transactional mode. Include required resources, boundaries, auth/data/telemetry flows, and output `agent-output/{project}/03-des-diagram.drawio` with quality score >= 9/10. Follow batch-only workflow from the drawio skill."
+    prompt: "TODO: Design diagrams will use Mermaid (drawio MCP not available). Once the mermaid skill is added to .github/skills/, generate a Mermaid architecture diagram for `agent-output/{project}/`."
     send: true
   - label: "▶ Create ADR from Assessment"
     agent: 04-Design
@@ -41,7 +41,7 @@ handoffs:
     send: true
   - label: "Step 3: Design Artifacts"
     agent: 04-Design
-    prompt: "Generate architecture diagrams and/or ADRs based on the architecture assessment in `agent-output/{project}/02-architecture-assessment.md`. For diagrams, use Draw.io (default) and save `agent-output/{project}/03-des-diagram.drawio`; ADRs remain `03-des-*.md`."
+    prompt: "Generate ADRs based on the architecture assessment in `agent-output/{project}/02-architecture-assessment.md`. Save ADRs as `agent-output/{project}/03-des-*.md`. TODO: Design diagrams will use Mermaid (drawio MCP not available)."
     send: false
   - label: "Step 3.5: Governance Discovery"
     agent: 04g-Governance
@@ -162,26 +162,10 @@ These skills are your single source of truth. Do NOT use hardcoded values.
 
 ## Core Workflow
 
-### Terraform-Specific WAF Notes
-
-When `iac_tool: Terraform` is present in `01-requirements.md`, include these additive notes
-in your WAF assessment recommendations (still produce the identical artifact structure):
-
-- **State management**: Terraform state must be stored remotely (Azure Blob Storage backend);
-  note access controls and state locking
-- **Provider constraints**: `azurerm` provider version pinning required; evaluate AVM-TF
-  module availability for target services
-- **Backend storage**: a dedicated storage account for Terraform state is a prerequisite
-  resource; flag this in the implementation notes
-- **Naming**: `random_suffix` (from `hashicorp/random`) replaces Bicep's `uniqueString()`
-  for unique resource names
-- **AVM-TF availability**: confirm AVM-TF modules exist for recommended services; flag gaps
-  where raw `azurerm` resources will be needed
-
 ### Steps
 
 1. **Read requirements** — Parse `01-requirements.md` for scope, NFRs, compliance,
-   and `iac_tool` value (note Terraform-specific WAF considerations above if applicable)
+   and `iac_tool` value (always `Bicep` in this repo)
 2. **Search docs** — Query Microsoft docs for each Azure service and architecture pattern
 3. **Assess trade-offs** — Evaluate all 5 WAF pillars, identify primary optimization
 4. **Select SKUs** — Choose resource SKUs and tiers (NO prices yet — leave cost columns blank)

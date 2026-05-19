@@ -201,32 +201,14 @@ the nearest matching H2. Omit template sections that have no content.
 
 This phase is required before presenting Gate 1. Do NOT skip it, even for simple projects.
 
-1. Delegate to `challenger-review-subagent` via `#runSubagent`:
-   - `artifact_path` = `agent-output/{project}/01-requirements.md`
-   - `project_name` = `{project}`
-   - `artifact_type` = `requirements`
-   - `review_focus` = `comprehensive`
-   - `pass_number` = `1`
-   - `prior_findings` = `null`
-2. Write returned JSON to `agent-output/{project}/challenge-findings-requirements.json`
-3. **Present findings directly in chat** — render a markdown table so the user
-   sees every finding without opening the JSON file:
-   - Print the overall assessment from `summary.overall_assessment`
-   - Render a table with columns: **ID**, **Severity**, **Title**, **WAF Pillar**, **Recommendation**
-   - List every finding from the `findings` array (must_fix first, then should_fix, then suggestion)
-   - Show totals: `N must-fix, N should-fix, N suggestion`
-   - Reference the JSON path for machine-readable details
-4. **Use `askQuestions`** to gather the user's decision (brief summary only —
-   the detailed findings are already visible in chat above):
-   - Question description: `"Challenger found N must-fix and N should-fix issues. See details in chat above. Revise or proceed?"`
-   - Ask a single-select question: _"How would you like to proceed?"_ with options:
-     1. **Revise requirements (recommended)** — fix must-fix items and optionally address should-fix
-        (recommended if any must-fix findings exist, mark as `recommended`)
-     2. **Proceed to Architecture** — accept findings as-is and move to Step 2
-   - If the user chooses to revise: apply fixes to `01-requirements.md`, then
-     re-run the challenger review (repeat from step 1 above)
-   - If the user chooses to proceed: present final handoff to Architect agent
-     **On completion** (MANDATORY): `apex-recall complete-step <project> 1 --json`
+Adversarial review is handled by the standalone `10-Challenger` agent or by parent
+orchestrators that include `challenger-review-subagent` in their `agents:` array.
+This agent (`02-Requirements`) does not invoke the subagent directly.
+
+After saving `01-requirements.md`, present the **Step 2: Architecture Assessment** handoff
+and allow the Orchestrator to route through the challenger if configured.
+
+**On completion** (MANDATORY): `apex-recall complete-step <project> 1 --json`
 
 ---
 

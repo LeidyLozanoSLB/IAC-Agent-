@@ -27,7 +27,7 @@ handoffs:
     send: false
 ---
 
-<!-- TODO: Challenger scope is intentionally narrow. Adversarial review focuses on compliance violations and Bicep correctness only. -->
+<!-- Challenger scope is intentionally narrow. Adversarial review focuses on compliance violations and Bicep correctness only. -->
 
 # Plan Challenger (Standalone Wrapper)
 

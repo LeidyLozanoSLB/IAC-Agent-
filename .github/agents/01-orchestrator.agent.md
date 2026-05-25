@@ -55,7 +55,7 @@ handoffs:
     send: true
   - label: "Step 3: Design Artifacts"
     agent: 04-Design
-    prompt: "Generate ADRs based on the architecture assessment in `agent-output/{project}/02-architecture-assessment.md`. Save ADRs as `agent-output/{project}/03-des-*.md`. TODO: Design diagrams will use Mermaid (drawio MCP not available). This step is optional — you can skip to Step 3.5."
+    prompt: "Generate ADRs based on the architecture assessment in `agent-output/{project}/02-architecture-assessment.md`. Save ADRs as `agent-output/{project}/03-des-*.md`. Architecture diagrams will be generated via Mermaid when 04-Design is fully implemented (see 04-design.agent.md Phase 2 workflow). This step is optional — you can skip to Step 3.5."
     send: false
   - label: "Step 3.5: Governance Discovery"
     agent: 04g-Governance

@@ -94,13 +94,46 @@ Run `apex-recall show <project> --json` for full project context. Do not read `0
 Ask only the questions below. If the user's initial message or the Orchestrator handoff
 already answered a question, **skip it silently** — do not re-ask things you already know.
 
-Use a single `askQuestions` call with all applicable questions. Keep the tone direct —
-this is an internal tool used by technical staff.
+**Question order is fixed**: Q0 must be asked and answered before any other question,
+because Q0's answer determines whether sub-questions about existing infrastructure appear
+in the same `askQuestions` form. Q1–Q5 then follow.
+
+Keep the tone direct — this is an internal tool used by technical staff.
 
 > **`askQuestions` API rules**:
 >
 > - When `allowFreeformInput: true`, provide either **0 options**
 >   (pure freeform) or **≥2 options**. One option + freeform is invalid.
+
+### Question 0 — Deployment mode (ALWAYS ASK FIRST)
+
+"Is there existing network infrastructure this resource should connect to?
+For example: an existing VNet, shared Key Vault, shared Log Analytics workspace,
+or existing resource group."
+
+Options: `Yes — existing infrastructure (brownfield)`, `No — start from scratch (greenfield)`
+
+This question **must be asked before any other question**. The agent must NEVER assume
+brownfield or greenfield — it always asks. Most internal users have existing infrastructure
+and only want a single resource added; do not default to greenfield silently.
+
+**If the user answers YES (brownfield)**: ask the following sub-questions in the same
+`askQuestions` form (or immediately afterward if your `askQuestions` implementation
+cannot show conditional follow-ups):
+
+- **Q0a — Existing VNet and subnet**:
+  "What is the existing VNet name and subnet name?" (freeform — accept formats like
+  `vnet-shared-prod / subnet-apps` or two separate fields)
+- **Q0b — Shared resources to reuse**:
+  "Are there any shared resources to reuse? (e.g. Key Vault name, Log Analytics
+  workspace name, resource group name)" (freeform, multiline — capture each as
+  `resource-type: name`)
+
+Then proceed with Q1–Q5 as defined below.
+
+**If the user answers NO (greenfield)**: skip Q0a and Q0b entirely. Proceed directly
+to Q1–Q5 as currently defined. **Do NOT alter the greenfield question flow** — it
+remains exactly as documented below.
 
 ### Question 1 — Environment (always ask)
 
@@ -169,6 +202,14 @@ skip this entirely.
 Generate `agent-output/{project}/01-requirements.md` with this structure:
 
 - **Resource requested**: (from Orchestrator context — what the user asked for)
+- **Deployment mode**: `brownfield` or `greenfield` (from Q0 — REQUIRED, never blank)
+- **Existing infrastructure**: (populate ONLY if Deployment mode is `brownfield`;
+  omit this section entirely if greenfield)
+  - **VNet**: (from Q0a — name)
+  - **Subnet**: (from Q0a — name)
+  - **Shared resources to reuse**: (from Q0b — list each as `resource-type: name`,
+    e.g. `Key Vault: kv-shared-prod`, `Log Analytics: log-shared-prod`,
+    `Resource Group: rg-shared-prod`. Write "None specified" if user provided none.)
 - **Environment**: (from Q1)
 - **Region**: (from Q2)
 - **Naming convention**: to be applied — standard pending definition
@@ -217,23 +258,33 @@ and allow the Orchestrator to route through the challenger if configured.
 ### DO
 
 - ✅ **Call `askQuestions` as your FIRST action** — before reading skills, before ANY file I/O
+- ✅ **Ask Q0 (deployment mode) FIRST, before any other question** — it gates the sub-questions
 - ✅ **Skip questions the Orchestrator context already answered** — do not re-ask known facts
-- ✅ Ask only the 5 defined questions (Q1–Q5), skip Q5 when SKU is irrelevant
+- ✅ Ask only the defined questions (Q0, optionally Q0a/Q0b if brownfield, then Q1–Q5),
+  skip Q5 when SKU is irrelevant
 - ✅ Render challenger findings as a markdown table in chat
 - ✅ Auto-save to `agent-output/{project}/01-requirements.md` before handoff
 - ✅ Set `iac_tool: Bicep` in the output — never ask the user about IaC tool choice
 - ✅ Defer naming convention: write "to be applied — standard pending definition"
+- ✅ Always write `Deployment mode: brownfield` or `Deployment mode: greenfield` —
+  this field is never blank or implicit
+- ✅ When brownfield, populate the **Existing infrastructure** section with VNet, subnet,
+  and shared resources verbatim from the user's answers
 
 ### DON'T
 
+- ❌ **NEVER assume deployment mode** — always ask Q0 explicitly
+- ❌ **NEVER default to greenfield silently** — most internal users have existing infrastructure
 - ❌ **NEVER re-ask what resource the user wants** — it's in the Orchestrator handoff
 - ❌ **NEVER ask about naming conventions** — deferred, not the user's problem
 - ❌ **NEVER read skills or templates before completing questioning**
+- ❌ Ask Q0a/Q0b when the user answered "greenfield" to Q0 — those sub-questions are
+  brownfield-only
 - ❌ Ask about HIPAA, compliance frameworks, industry vertical, or company size
 - ❌ Ask about concurrent users, TPS, daily active users, or workload patterns
 - ❌ Ask about N-tier layers, SLA targets, RTO/RPO, or service tiers (unless Q5 applies)
 - ❌ Ask about authentication methods or security controls
-- ❌ Add questions beyond Q1–Q5
+- ❌ Add questions beyond Q0/Q0a/Q0b and Q1–Q5
 - ❌ Create files other than `01-requirements.md` and `README.md`
 - ❌ Generate Bicep code or make architecture decisions
 
@@ -242,6 +293,9 @@ and allow the Orchestrator to route through the challenger if configured.
 | Field                    | Source              | Default / Notes                                    |
 | ------------------------ | ------------------- | -------------------------------------------------- |
 | Resource requested       | Orchestrator        | (from user's initial message — never re-ask)       |
+| Deployment mode          | Q0                  | (required: `brownfield` or `greenfield` — never blank) |
+| Existing VNet + subnet   | Q0a (brownfield only) | (required if brownfield, omit field if greenfield) |
+| Shared resources to reuse | Q0b (brownfield only) | (list each as `type: name`, or "None specified")  |
 | Environment              | Q1                  | (required: dev / staging / prod)                   |
 | Region                   | Q2                  | `swedencentral` if no default defined              |
 | Naming convention        | —                   | "to be applied — standard pending definition"      |
@@ -263,12 +317,16 @@ If `askQuestions` is unavailable, gather via chat questions instead.
 Before saving the requirements document:
 
 - [ ] Resource requested is populated from Orchestrator context
+- [ ] **Deployment mode is populated** — value is exactly `brownfield` or `greenfield` (never blank)
+- [ ] **Q0 was asked explicitly** — deployment mode was NOT assumed
+- [ ] If brownfield: Existing infrastructure section is populated with VNet, subnet, and shared resources
+- [ ] If greenfield: Existing infrastructure section is omitted entirely (not blank, not "N/A")
 - [ ] Environment is one of: dev, staging, prod
 - [ ] Region is populated (default: swedencentral)
 - [ ] Naming convention line reads "to be applied — standard pending definition"
 - [ ] Connectivity requirements captured with network implications noted
 - [ ] `iac_tool` field present (value: `Bicep`)
-- [ ] No questions beyond Q1–Q5 were asked
+- [ ] No questions beyond Q0/Q0a/Q0b and Q1–Q5 were asked
 - [ ] No HIPAA, compliance, industry, or workload-pattern questions were asked
 - [ ] Attribution header matches template pattern
 - [ ] No Bicep code blocks in the document

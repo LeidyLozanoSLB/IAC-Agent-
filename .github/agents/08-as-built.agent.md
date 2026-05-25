@@ -25,7 +25,7 @@ handoffs:
     send: true
   - label: "↩ Return to Orchestrator"
     agent: 01-Orchestrator
-    prompt: "Returning from Step 7 (As-Built Documentation). Complete documentation suite generated at `agent-output/{project}/07-*.md` including design document, operations runbook, cost estimate, compliance matrix, and resource inventory. Workflow is complete."
+    prompt: "Returning from Step 7 (As-Built Documentation). Complete documentation suite generated at `agent-output/{project}/07-*.md` including design document, operations runbook, compliance matrix, backup/DR plan, and resource inventory. Workflow is complete."
     send: false
 ---
 
@@ -40,7 +40,7 @@ At >80% context, switch to SKILL.minimal.md and do not re-read predecessor artif
 
 ## Scope
 
-**This agent generates as-built documentation only**: design document, operations runbook, cost estimate,
+**This agent generates as-built documentation only**: design document, operations runbook,
 compliance matrix, backup/DR plan, resource inventory, and documentation index.
 Do not modify deployed infrastructure, change IaC templates, or skip prior artifact review.
 
@@ -50,12 +50,11 @@ Before doing any work, read these skills:
 
 1. Read `.github/skills/azure-defaults/SKILL.digest.md` — regions, tags, naming
 2. Read `.github/skills/azure-artifacts/SKILL.digest.md` — H2 templates for all 07-\* artifacts
-3. Read `.github/skills/python-diagrams/SKILL.md` — WAF/cost chart generation
+3. Read `.github/skills/python-diagrams/SKILL.md` — chart generation conventions (compliance gaps chart only)
 4. Read `.github/skills/context-shredding/SKILL.digest.md` — runtime compression for predecessor artifacts
-6. Read the template files for your artifacts (all in `.github/skills/azure-artifacts/templates/`):
+5. Read the template files for your artifacts (all in `.github/skills/azure-artifacts/templates/`):
    - `07-design-document.template.md`
    - `07-operations-runbook.template.md`
-   - `07-ab-cost-estimate.template.md`
    - `07-compliance-matrix.template.md`
    - `07-backup-dr-plan.template.md`
    - `07-resource-inventory.template.md`
@@ -67,8 +66,10 @@ Before doing any work, read these skills:
 
 - Read ALL prior artifacts (01-06) before generating any documentation
 - Query deployed Azure resources for real state (not just planned state)
-<!-- TODO: cost summary not available in this version — re-enable cost-estimate-subagent delegation when pricing tooling is added -->
-<!-- TODO: replace with Mermaid diagram — re-enable drawio diagram generation when drawio MCP is added -->
+<!-- TODO: Once Phase 4 (As-Built Diagram) is implemented, add to the Do list:
+     - Generate a Mermaid diagram showing deployed resource groups, networking, and service dependencies
+     - Save to agent-output/{project}/07-architecture-diagram.md
+     - Verify rendering via vscode.mermaid-chat-features/renderMermaidDiagram (tool available in this agent) -->
 - Match H2 headings from azure-artifacts templates exactly
 - Include attribution headers from template files
 - Update `agent-output/{project}/README.md` — mark Step 7 complete
@@ -82,13 +83,17 @@ Before doing any work, read these skills:
 - Using planned values when actual deployed values are available
 - Generating documentation for resources that failed deployment
 - Using H2 headings that differ from the templates
-- Hardcoding prices — cost estimation is not available in this version
+- Generating `07-ab-cost-estimate.md` or any cost charts (`07-ab-cost-distribution.*`, `07-ab-cost-projection.*`, `07-ab-cost-comparison.*`) — cost estimation tooling has been removed from this repo
+- Including dollar figures in any artifact — describe deployed SKUs and tiers without monetary values
 
 ## As-Built Diagram
 
-<!-- TODO: replace with Mermaid diagram — drawio MCP is not available in this version.
-     When the mermaid skill is added to .github/skills/, generate a Mermaid architecture
-     diagram here instead of a .drawio file. -->
+<!-- TODO: Implement this section — generate a Mermaid architecture diagram reflecting actual deployed resources.
+     Steps: (1) read `.github/skills/mermaid/SKILL.md` once created; (2) query deployed resource state
+     via `az resource list --resource-group {rg}` to populate resource names and types; (3) generate a
+     Mermaid `graph TD` diagram showing resource groups, networking topology, and service dependencies;
+     (4) verify via vscode.mermaid-chat-features/renderMermaidDiagram; (5) save to
+     agent-output/{project}/07-architecture-diagram.md; (6) link from 07-documentation-index.md. -->
 
 ## Prerequisites Check
 
@@ -100,7 +105,6 @@ Before starting, validate these artifacts exist in `agent-output/{project}/`:
 | `02-architecture-assessment.md`  | Yes      | WAF assessment and decisions |
 | `04-implementation-plan.md`      | Yes      | Planned architecture         |
 | `06-deployment-summary.md`       | Yes      | Deployment results           |
-| `03-des-cost-estimate.md`        | No       | Original cost estimate       |
 | `04-governance-constraints.md`   | No       | Governance findings          |
 | `05-implementation-reference.md` | No       | Bicep validation results     |
 
@@ -113,7 +117,7 @@ Run `apex-recall show <project> --json` for full project context. Do not read `0
 - **Context budget**: Read `06-deployment-summary.md` + `01-requirements.md` at startup
 - **My step**: 7
 - **Sub-step checkpoints**: `phase_1_prereqs` → `phase_1.5_compacted` →
-  `phase_2_inventory` → `phase_3_docs` → `phase_4_cost` → `phase_5_diagram` → `phase_6_index`
+  `phase_2_inventory` → `phase_3_docs` → `phase_4_charts` → `phase_5_diagram` → `phase_6_index`
 - **Resume**: Use the `apex-recall show` output to detect resume point from `sub_step`.
   (e.g. if `phase_3_docs`, inventory is done — read `07-resource-inventory.md` on-demand.)
 - **Checkpoints**: `apex-recall checkpoint <project> 7 <phase_name> --json`
@@ -140,7 +144,6 @@ Compact before generating the 7-document suite.
    - Architecture decisions from `02-architecture-assessment.md` (WAF scores, pattern)
    - Deployment result from `06-deployment-summary.md` (success/partial, resource count)
    - Compliance requirements from `01-requirements.md`
-   - Cost estimate baseline from `03-des-cost-estimate.md` (if available)
 2. **Switch to minimal skill loading** — for any further skill reads, use
    `SKILL.minimal.md` variants (see `context-shredding` skill, >80% tier)
 3. **Do NOT re-read predecessor artifacts during doc generation** — rely on
@@ -158,41 +161,30 @@ Generate these files IN ORDER (each builds on the previous):
 | ----- | --------------------------- | ----------------------------------------------------------- |
 | 1     | `07-resource-inventory.md`  | All deployed resources with IDs and config                  |
 | 2     | `07-design-document.md`     | Architecture decisions and rationale                        |
-| 3     | `07-ab-cost-estimate.md`    | As-built costs (placeholder — pricing tooling not available) |
-| 4     | `07-compliance-matrix.md`   | Security and compliance controls mapping                    |
-| 5     | `07-backup-dr-plan.md`      | Backup, DR, and business continuity                         |
-| 6     | `07-operations-runbook.md`  | Day-2 operations, monitoring, troubleshooting               |
-| 7     | `07-documentation-index.md` | Index of all project artifacts with links                   |
-
-## Cost Estimation (07-ab-cost-estimate.md)
-
-<!-- TODO: cost summary not available in this version.
-     When pricing tooling (cost-estimate-subagent + Azure Pricing MCP) is added,
-     restore the full cost estimation workflow:
-     1. Query deployed resources for actual SKUs/tiers/quantities
-     2. Delegate pricing to cost-estimate-subagent
-     3. Integrate verbatim subagent prices
-     4. Cross-check with planned cost estimates
-     For now, generate a placeholder 07-ab-cost-estimate.md listing deployed SKUs
-     and tiers without dollar figures. -->
+| 3     | `07-compliance-matrix.md`   | Security and compliance controls mapping                    |
+| 4     | `07-backup-dr-plan.md`      | Backup, DR, and business continuity                         |
+| 5     | `07-operations-runbook.md`  | Day-2 operations, monitoring, troubleshooting               |
+| 6     | `07-documentation-index.md` | Index of all project artifacts with links                   |
 
 ### Phase 3: As-Built Charts
 
-Read `.github/skills/python-diagrams/references/waf-cost-charts.md` and generate
-three cost charts using as-built figures:
+Read `.github/skills/python-diagrams/references/waf-cost-charts.md` for chart conventions
+and generate the compliance gaps chart:
 
-- `agent-output/{project}/07-ab-cost-distribution.py` + `07-ab-cost-distribution.png`
-- `agent-output/{project}/07-ab-cost-projection.py` + `07-ab-cost-projection.png`
-- `agent-output/{project}/07-ab-cost-comparison.py` + `07-ab-cost-comparison.png` (design vs as-built)
-- `agent-output/{project}/07-ab-compliance-gaps.py` + `07-ab-compliance-gaps.png` (gap counts by severity)
+- `agent-output/{project}/07-ab-compliance-gaps.py` + `07-ab-compliance-gaps.png` — gap counts by severity
 
-Execute each `.py` file and verify the PNGs exist before continuing.
+Execute the `.py` file and verify the PNG exists before continuing.
 
 ### Phase 4: As-Built Diagram
 
-<!-- TODO: replace with Mermaid diagram — drawio MCP is not available in this version.
-     Generate a Mermaid architecture diagram reflecting actual deployed resources.
-     The diagram should show resource groups, networking topology, and service dependencies. -->
+<!-- TODO: Implement Phase 4 — As-Built Diagram:
+     1. Read `.github/skills/mermaid/SKILL.md` (once created)
+     2. Query deployed resource group via `az resource list --resource-group {rg} --output json`
+     3. Generate a Mermaid `graph TD` or `flowchart LR` diagram with actual deployed resource names
+     4. Verify rendering via `vscode.mermaid-chat-features/renderMermaidDiagram`
+     5. Save to `agent-output/{project}/07-architecture-diagram.md`
+     6. Add link to `07-documentation-index.md`
+     Checkpoint: `apex-recall checkpoint <project> 7 phase_5_diagram --json` -->
 
 ### Phase 4: Finalize
 
@@ -221,23 +213,24 @@ az graph query -q "resources | where resourceGroup == '{rg-name}' | project name
 | ------------------------ | -------------------------------------------------- |
 | Resource Inventory       | `agent-output/{project}/07-resource-inventory.md`  |
 | Design Document          | `agent-output/{project}/07-design-document.md`     |
-| Cost Estimate (As-Built) | `agent-output/{project}/07-ab-cost-estimate.md`    |
 | Compliance Matrix        | `agent-output/{project}/07-compliance-matrix.md`   |
 | Backup & DR Plan         | `agent-output/{project}/07-backup-dr-plan.md`      |
 | Operations Runbook       | `agent-output/{project}/07-operations-runbook.md`  |
 | Documentation Index      | `agent-output/{project}/07-documentation-index.md` |
+| Compliance Gaps Chart    | `agent-output/{project}/07-ab-compliance-gaps.py/.png` |
 
 ## Expected Output
 
 ```text
 agent-output/{project}/
-├── 07-resource-inventory.md      # Deployed resources with IDs and config
-├── 07-design-document.md         # Architecture decisions and rationale
-├── 07-ab-cost-estimate.md        # As-built costs (placeholder — pricing not available)
-├── 07-compliance-matrix.md       # Security and compliance controls mapping
-├── 07-backup-dr-plan.md          # Backup, DR, and business continuity
-├── 07-operations-runbook.md      # Day-2 ops, monitoring, troubleshooting
-└── 07-documentation-index.md     # Index of all project artifacts
+├── 07-resource-inventory.md       # Deployed resources with IDs and config
+├── 07-design-document.md          # Architecture decisions and rationale
+├── 07-compliance-matrix.md        # Security and compliance controls mapping
+├── 07-backup-dr-plan.md           # Backup, DR, and business continuity
+├── 07-operations-runbook.md       # Day-2 ops, monitoring, troubleshooting
+├── 07-documentation-index.md      # Index of all project artifacts
+├── 07-ab-compliance-gaps.py       # Chart script — gap counts by severity
+└── 07-ab-compliance-gaps.png      # Compliance gaps chart
 ```
 
 Validation: `npm run lint:artifact-templates` must pass for all 07-\* files.
@@ -262,7 +255,7 @@ This keeps the user informed during multi-phase operations.
 
 - [ ] All prior artifacts (01-06) read and cross-referenced
 - [ ] Deployed resource state queried (not just planned state)
-- [ ] All 7 documentation files generated with correct H2 headings
+- [ ] All 6 documentation files generated with correct H2 headings
 - [ ] Compliance matrix maps controls to actual resource configurations
 - [ ] Resource inventory cross-referenced against 04-implementation-plan.md — every planned resource appears
 - [ ] For GDPR projects: compliance matrix maps each requirements clause to a specific Azure control with evidence

@@ -74,6 +74,7 @@ Do not modify architecture decisions — hand back to Planner.
 
 <output_contract>
 Phase 1: agent-output/{project}/04-preflight-check.md
+Phase 1.7: deployment mode branch — brownfield (existing-keyword references) vs greenfield (full creation)
 Phase 2-4: infra/bicep/{project}/ templates
 Phase 5: agent-output/{project}/05-implementation-reference.md
 </output_contract>
@@ -115,6 +116,11 @@ Before doing any work, read these skills:
 ## Do
 
 - Run preflight check BEFORE writing any Bicep (Phase 1)
+- **Read `01-requirements.md` Deployment mode field BEFORE Phase 2** — branch behavior
+  depends on it (Phase 1.7)
+- **If brownfield**: reference existing VNet, subnets, NSGs, Private DNS, Log Analytics,
+  and any shared resources via the `existing` keyword. Do NOT create them.
+- **If greenfield**: create the full infrastructure stack as planned
 - Use `askQuestions` to present blockers from Phase 1 + 1.5
 - Use AVM modules for EVERY resource that has one
 - Generate `uniqueSuffix` ONCE in `main.bicep`, pass to ALL modules
@@ -134,6 +140,13 @@ Before doing any work, read these skills:
 ## Don't
 
 - Start coding before preflight check
+- **Assume greenfield when `01-requirements.md` says brownfield** — re-creating an
+  existing VNet or Log Analytics workspace is the primary cause of resource bloat
+- **Create VNet, subnets, NSGs, Private DNS Zones, Log Analytics, or any "shared resources
+  to reuse" listed in `01-requirements.md` when Deployment mode is `brownfield`** — these
+  must be referenced via the `existing` keyword
+- **Hardcode existing resource names** in brownfield mode — accept them as parameters from
+  `01-requirements.md` Existing infrastructure section
 - Silently halt on blockers without telling the user why
 - List blockers in chat and wait for a reply (wastes a round-trip)
 - Write raw Bicep when AVM exists
@@ -155,11 +168,17 @@ Before doing any work, read these skills:
 
 Before starting, validate these files exist in `agent-output/{project}/`:
 
-1. `04-implementation-plan.md` — **REQUIRED**. If missing, STOP → handoff to Bicep Plan agent
-2. `04-governance-constraints.json` — **REQUIRED**. If missing, STOP → request governance discovery
-3. `04-governance-constraints.md` — **REQUIRED**. Human-readable governance constraints
+1. `01-requirements.md` — **REQUIRED**. Read the **Deployment mode** field and (if brownfield)
+   the **Existing infrastructure** section. These drive the brownfield/greenfield branch in Phase 2.
+2. `04-implementation-plan.md` — **REQUIRED**. If missing, STOP → handoff to Bicep Plan agent
+3. `04-governance-constraints.json` — **REQUIRED**. If missing, STOP → request governance discovery
+4. `04-governance-constraints.md` — **REQUIRED**. Human-readable governance constraints
 
 Also read `02-architecture-assessment.md` for SKU/tier context.
+
+**Deployment mode is mandatory**: If `01-requirements.md` does not contain a `Deployment mode`
+field with value `brownfield` or `greenfield`, STOP and present the Return to Step 4 handoff
+(plan is incomplete — Requirements should be regenerated).
 
 ## Session State
 
@@ -168,8 +187,8 @@ Run `apex-recall show <project> --json` for full project context. Do not read `0
 - **Context budget**: Read `04-implementation-plan.md` + `04-governance-constraints.json` at startup
 - **My step**: 5
 - **Sub-steps**: `phase_1_preflight` → `phase_1.5_governance` →
-  `phase_1.6_compacted` → `phase_2_scaffold` → `phase_3_modules` → `phase_4_lint` →
-  `phase_5_challenger` → `phase_6_artifact`
+  `phase_1.6_compacted` → `phase_1.7_mode` → `phase_2_scaffold` → `phase_3_modules` →
+  `phase_4_lint` → `phase_5_challenger` → `phase_6_artifact`
 - **Resume**: Use the `apex-recall show` output to detect resume point.
 - **Checkpoints**: `apex-recall checkpoint <project> 5 <phase_name> --json`
 - **Decisions**: `apex-recall decide <project> --decision "<text>" --rationale "<why>" --step 5 --json`
@@ -249,6 +268,72 @@ Compact the conversation before proceeding to code generation.
    and the saved `04-preflight-check.md` + `04-governance-constraints.json` on disk
 4. **Update session state** — run `apex-recall checkpoint <project> 5 phase_1.6_compacted --json`
    so resume skips re-loading prior context
+
+### Phase 1.7: Deployment Mode Branch (MANDATORY)
+
+Read the **Deployment mode** field from `01-requirements.md`. Branch on its value:
+
+#### If `Deployment mode: brownfield`
+
+Generate **lean Bicep that references existing resources** using the Bicep `existing`
+keyword rather than creating new ones.
+
+**Do NOT create** any of the following — assume they exist and reference them via `existing`:
+
+- VNet
+- Subnets
+- NSGs (Network Security Groups)
+- Private DNS Zones
+- Log Analytics workspace
+- Resource Group (deploy INTO the existing resource group, do not create one)
+- Any resource explicitly listed under **Existing infrastructure → Shared resources to reuse**
+  in `01-requirements.md` (e.g. Key Vault, Storage Account)
+
+**DO create**:
+
+- The single requested resource (the workload itself)
+- The minimum wiring needed to connect that resource to the existing infrastructure
+  (e.g. a Private Endpoint on the existing subnet, a diagnostic setting pointing at the
+  existing Log Analytics workspace, a role assignment scoped to the existing Key Vault)
+
+**Pattern reference**: `.github/skills/azure-bicep-patterns/references/common-patterns.md`
+documents the `existing` keyword usage and race-condition prevention. Read this section
+before writing brownfield Bicep — pay attention to the "Existing Resource Dependencies"
+race-condition guidance.
+
+**Brownfield parameter convention**: Each existing resource is referenced by **name** (string
+parameter), then resolved inside the module via `existing`. Do NOT hardcode names — accept
+them as parameters in `main.bicepparam` populated from the Existing infrastructure section
+of `01-requirements.md`.
+
+Example skeleton:
+
+```bicep
+param existingVnetName string
+param existingSubnetName string
+param existingLogAnalyticsName string
+
+resource vnet 'Microsoft.Network/virtualNetworks@2024-01-01' existing = {
+  name: existingVnetName
+}
+
+resource subnet 'Microsoft.Network/virtualNetworks/subnets@2024-01-01' existing = {
+  parent: vnet
+  name: existingSubnetName
+}
+
+resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
+  name: existingLogAnalyticsName
+}
+```
+
+#### If `Deployment mode: greenfield`
+
+Proceed with full infrastructure creation as normal — generate all supporting resources
+(VNet, subnets, NSGs, Private DNS Zones, Log Analytics, etc.) per the implementation plan.
+No changes to existing Phase 2 behavior.
+
+**Checkpoint** (MANDATORY): `apex-recall checkpoint <project> 5 phase_1.7_mode --json`
 
 ### Phase 2: Progressive Implementation
 

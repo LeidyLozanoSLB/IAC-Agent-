@@ -1,199 +1,77 @@
 ---
 name: entra-app-registration
-description: "Guides Microsoft Entra ID app registration, OAuth 2.0 authentication, and MSAL integration. USE FOR: create app registration, register Azure AD app, configure OAuth, set up authentication, add API permissions, generate service principal, MSAL example, console app auth, Entra ID setup, Azure AD authentication. DO NOT USE FOR: Azure RBAC or role assignments (use azure-rbac), Key Vault secrets (use azure-keyvault-expiration-audit), Azure resource security (use azure-security)."
+description: '**WORKFLOW SKILL** — Guides Microsoft Entra ID app registration, OAuth 2.0 authentication, and MSAL integration. WHEN: "create app registration", "register Azure AD app", "configure OAuth", "add API permissions", "generate service principal", "MSAL example", "Entra ID setup". DO NOT USE FOR: Azure RBAC (azure-rbac), Key Vault audits (azure-compliance), resource security scanning (azure-compliance).'
 license: MIT
 metadata:
   author: Microsoft
   version: "1.0.0"
 ---
 
-## Overview
+# Entra App Registration
 
-Microsoft Entra ID (formerly Azure AD) is Microsoft's cloud-based identity and access management service.
+Microsoft Entra ID (formerly Azure AD) is Microsoft's cloud identity and
+access-management service. This skill guides app registration, OAuth 2.0
+flows, and MSAL integration.
 
-### Key Concepts
+For key concepts, application types, and the 3 common patterns (first-time
+registration, console app with user auth, service-to-service), read
+[`references/common-patterns.md`](references/common-patterns.md).
 
-| Concept                     | Description                                                         |
-| --------------------------- | ------------------------------------------------------------------- |
-| **App Registration**        | Configuration that allows an app to use Microsoft identity platform |
-| **Application (Client) ID** | Unique identifier for your application                              |
-| **Tenant ID**               | Unique identifier for your Azure AD tenant/directory                |
-| **Client Secret**           | Password for the application (confidential clients only)            |
-| **Redirect URI**            | URL where authentication responses are sent                         |
-| **API Permissions**         | Access scopes your app requests                                     |
-| **Service Principal**       | Identity created in your tenant when you register an app            |
+## Rules
 
-### Application Types
-
-| Type                      | Use Case                      |
-| ------------------------- | ----------------------------- |
-| **Web Application**       | Server-side apps, APIs        |
-| **Single Page App (SPA)** | JavaScript/React/Angular apps |
-| **Daemon/Service**        | Background services, APIs     |
+- **Prefer IaC** for managing app registrations when the project uses IaC, scales to many apps, or needs audit history (see [`references/BICEP-EXAMPLE.bicep`](references/BICEP-EXAMPLE.bicep))
+- **Prefer certificates or federated identity credentials over client secrets** in production
+- **Store client secrets in Key Vault** — never commit them; rotate regularly; copy the value immediately on creation (only shown once)
+- **Grant least-privilege API permissions** — only the scopes the app actually uses
+- **CLI for ad-hoc**, **IaC for production** — see [`references/cli-commands.md`](references/cli-commands.md)
+- **Out of scope**: Azure RBAC (azure-rbac), Key Vault audits (azure-compliance), resource security scanning (azure-compliance)
 
 ## Core Workflow
 
-### Step 1: Register the Application
+Five-step procedure (full per-step detail in
+[`references/core-workflow.md`](references/core-workflow.md)):
 
-Create an app registration in the Azure portal or using Azure CLI.
+1. **Register the Application** — portal, CLI ([`cli-commands.md`](references/cli-commands.md)), or IaC ([`BICEP-EXAMPLE.bicep`](references/BICEP-EXAMPLE.bicep))
+2. **Configure Authentication** — redirect URIs / token settings per app type
+3. **Configure API Permissions** — Graph and custom-API scopes ([`api-permissions.md`](references/api-permissions.md))
+4. **Create Client Credentials** — secret / certificate / federated identity (Key Vault)
+5. **Implement OAuth Flow** — code integration ([`oauth-flows.md`](references/oauth-flows.md), [`console-app-example.md`](references/console-app-example.md))
 
-**Portal Method:**
+## Microsoft Authentication Library (MSAL)
 
-1. Navigate to Azure Portal → Microsoft Entra ID → App registrations
-2. Click "New registration"
-3. Provide name, supported account types, and redirect URI
-4. Click "Register"
+Recommended library for integrating with the Microsoft identity platform:
 
-**CLI Method:** See [references/cli-commands.md](references/cli-commands.md)
-**IaC Method:** See [references/BICEP-EXAMPLE.bicep](references/BICEP-EXAMPLE.bicep)
+- .NET / C# — `Microsoft.Identity.Client`
+- JavaScript / TypeScript — `@azure/msal-browser`, `@azure/msal-node`
+- Python — `msal`
 
-It's highly recommended to use the IaC to manage Entra app registration if you already use IaC in your project, need a scalable solution for managing lots of app registrations or need fine-grained audit history of the configuration changes.
-
-### Step 2: Configure Authentication
-
-Set up authentication settings based on your application type.
-
-- **Web Apps**: Add redirect URIs, enable ID tokens if needed
-- **SPAs**: Add redirect URIs, enable implicit grant flow if necessary
-- **Mobile/Desktop**: Use `http://localhost` or custom URI scheme
-- **Services**: No redirect URI needed for client credentials flow
-
-### Step 3: Configure API Permissions
-
-Grant your application permission to access Microsoft APIs or your own APIs.
-
-**Common Microsoft Graph Permissions:**
-
-- `User.Read` - Read user profile
-- `User.ReadWrite.All` - Read and write all users
-- `Directory.Read.All` - Read directory data
-- `Mail.Send` - Send mail as a user
-
-**Details:** See [references/api-permissions.md](references/api-permissions.md)
-
-### Step 4: Create Client Credentials (if needed)
-
-For confidential client applications (web apps, services), create a client secret, certificate or federated identity credential.
-
-**Client Secret:**
-
-- Navigate to "Certificates & secrets"
-- Create new client secret
-- Copy the value immediately (only shown once)
-- Store securely (Key Vault recommended)
-
-**Certificate:** For production environments, use certificates instead of secrets for enhanced security. Upload certificate via "Certificates & secrets" section.
-
-**Federated Identity Credential:** For dynamically authenticating the confidential client to Entra platform.
-
-### Step 5: Implement OAuth Flow
-
-Integrate the OAuth flow into your application code.
-
-**See:**
-
-- [references/oauth-flows.md](references/oauth-flows.md) - OAuth 2.0 flow details
-- [references/console-app-example.md](references/console-app-example.md) - Console app implementation
-
-## Common Patterns
-
-### Pattern 1: First-Time App Registration
-
-Walk user through their first app registration step-by-step.
-
-**Required Information:**
-
-- Application name
-- Application type (web, SPA, mobile, service)
-- Redirect URIs (if applicable)
-- Required permissions
-
-**Script:** See [references/first-app-registration.md](references/first-app-registration.md)
-
-### Pattern 2: Console Application with User Authentication
-
-Create a .NET/Python/Node.js console app that authenticates users.
-
-**Required Information:**
-
-- Programming language (C#, Python, JavaScript, etc.)
-- Authentication library (MSAL recommended)
-- Required permissions
-
-**Example:** See [references/console-app-example.md](references/console-app-example.md)
-
-### Pattern 3: Service-to-Service Authentication
-
-Set up daemon/service authentication without user interaction.
-
-**Required Information:**
-
-- Service/app name
-- Target API/resource
-- Whether to use secret or certificate
-
-**Implementation:** Use Client Credentials flow (see [references/oauth-flows.md#client-credentials-flow](references/oauth-flows.md#client-credentials-flow))
-
-## MCP Tools and CLI
-
-### Azure CLI Commands
-
-| Command                      | Purpose                     |
-| ---------------------------- | --------------------------- |
-| `az ad app create`           | Create new app registration |
-| `az ad app list`             | List app registrations      |
-| `az ad app show`             | Show app details            |
-| `az ad app permission add`   | Add API permission          |
-| `az ad app credential reset` | Generate new client secret  |
-| `az ad sp create`            | Create service principal    |
-
-**Complete reference:** See [references/cli-commands.md](references/cli-commands.md)
-
-### Microsoft Authentication Library (MSAL)
-
-MSAL is the recommended library for integrating Microsoft identity platform.
-
-**Supported Languages:**
-
-- .NET/C# - `Microsoft.Identity.Client`
-- JavaScript/TypeScript - `@azure/msal-browser`, `@azure/msal-node`
-- Python - `msal`
-
-**Examples:** See [references/console-app-example.md](references/console-app-example.md)
+Examples: [`references/console-app-example.md`](references/console-app-example.md).
+SDK quick references in `references/sdk/` (azure-identity + key-vault, per language).
 
 ## Security Best Practices
 
-Never hardcode secrets · Rotate secrets regularly · Use certificates over secrets in production ·
-Least privilege API permissions · Enable MFA · Use managed identity for Azure-hosted apps ·
-Validate tokens (issuer, audience, expiration) · HTTPS-only redirect URIs ·
-Monitor sign-ins via Entra ID logs. See `references/auth-best-practices.md` for details.
+Never hardcode secrets · rotate regularly · prefer certificates over secrets in
+production · least-privilege API permissions · enable MFA · use managed
+identity for Azure-hosted apps · validate tokens (issuer / audience /
+expiration) · HTTPS-only redirect URIs (per the canonical
+[security baseline](../../instructions/references/iac-security-baseline.md)) ·
+monitor sign-ins via Entra ID logs.
 
-## SDK Quick References
-
-- **Azure Identity**: [Python](references/sdk/azure-identity-py.md) | [.NET](references/sdk/azure-identity-dotnet.md) | [TypeScript](references/sdk/azure-identity-ts.md) | [Java](references/sdk/azure-identity-java.md) | [Rust](references/sdk/azure-identity-rust.md)
-- **Key Vault**: [Python](references/sdk/azure-keyvault-py.md) | [TypeScript](references/sdk/azure-keyvault-secrets-ts.md)
-
-## References
-
-- [OAuth Flows](references/oauth-flows.md) - Detailed OAuth 2.0 flow explanations
-- [CLI Commands](references/cli-commands.md) - Azure CLI reference for app registrations
-- [Console App Example](references/console-app-example.md) - Complete working examples
-- [First App Registration](references/first-app-registration.md) - Step-by-step guide for beginners
-- [API Permissions](references/api-permissions.md) - Understanding and configuring permissions
-- [Troubleshooting](references/troubleshooting.md) - Common issues and solutions
-
-## External Resources
-
-- [Identity Platform](https://learn.microsoft.com/entra/identity-platform/) | [OAuth 2.0/OIDC](https://learn.microsoft.com/entra/identity-platform/v2-protocols) | [MSAL](https://learn.microsoft.com/entra/msal/) | [Graph API](https://learn.microsoft.com/graph/)
+Full details in
+[`references/auth-best-practices.md`](references/auth-best-practices.md).
 
 ## Reference Index
 
-| Reference                              | When to Load           |
-| -------------------------------------- | ---------------------- |
-| `references/api-permissions.md`        | Api Permissions        |
-| `references/auth-best-practices.md`    | Auth Best Practices    |
-| `references/cli-commands.md`           | Cli Commands           |
-| `references/console-app-example.md`    | Console App Example    |
-| `references/first-app-registration.md` | First App Registration |
-| `references/oauth-flows.md`            | Oauth Flows            |
-| `references/troubleshooting.md`        | Troubleshooting        |
+| Reference                              | When to Load                                          |
+| -------------------------------------- | ----------------------------------------------------- |
+| `references/common-patterns.md`        | Key concepts, app types, 3 common registration patterns |
+| `references/core-workflow.md`          | Full per-step procedure for app registration          |
+| `references/api-permissions.md`        | Graph and custom-API permission configuration         |
+| `references/auth-best-practices.md`    | Detailed security best practices                      |
+| `references/cli-commands.md`           | Azure CLI reference for app registrations             |
+| `references/console-app-example.md`    | Complete working code examples (multiple languages)   |
+| `references/first-app-registration.md` | Step-by-step guide for beginners                      |
+| `references/oauth-flows.md`            | Detailed OAuth 2.0 flow explanations                  |
+| `references/troubleshooting.md`        | Common issues and solutions                           |
+| `references/BICEP-EXAMPLE.bicep`       | Bicep template for IaC-managed app registration       |
+| `references/sdk/*.md`                  | Language-specific SDK quick references                |

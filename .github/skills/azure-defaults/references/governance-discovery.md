@@ -95,3 +95,18 @@ PolicyResources
 | SQL AAD-only auth  | SQL password auth blocked | Use `azureADOnlyAuth: true`     |
 | Storage shared key | Shared key access denied  | Use managed identity RBAC       |
 | Zone redundancy    | Non-zonal SKUs rejected   | Use P1v4+ for App Service Plans |
+
+## L0 Discovery Envelope
+
+The canonical specification (envelope shape, field reference,
+completeness-signature algorithm, end-of-discovery self-check, refresh
+handoff contract, consumer protocol, backward compatibility) lives in
+[`azure-governance-discovery/references/l0-envelope.md`](../../azure-governance-discovery/references/l0-envelope.md).
+That file is the single source of truth — load it on demand when
+implementing or reviewing the envelope contract.
+
+The envelope ties into the canonical defaults declared in
+[`../SKILL.md`](../SKILL.md): the same region constants seed
+`scope.management_groups`, and the tag schema discovered through Phase 1
+respects (or augments) the lowercase 4-tag greenfield fallback when no
+policy exists.

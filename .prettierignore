@@ -1,0 +1,32 @@
+# Paths Prettier should ignore. Keep in sync with eslint.config.mjs ignores.
+node_modules/
+site/dist/
+site/.astro/
+agent-output/
+tmp/
+infra/
+logs/
+assets/
+**/*.min.js
+
+# Deno-managed: uses deno fmt
+tools/mcp-servers/drawio/
+
+# Caches
+.eslintcache
+node_modules/.cache/
+
+# Build artefacts
+*.tsbuildinfo
+
+# AI-author markdown — Prettier's markdown printer collapses mixed-marker
+# numbered lists (6a. / 7. / 8. / 9a.) with 4-space sub-paragraph
+# continuations, which breaks agent definitions and instruction files.
+# Linting is handled by markdownlint-cli2; line length by MD013 (120 chars).
+# Run `npx prettier --check '.github/agents/**/*.md'` to verify the
+# disagreement is intentional before removing these globs.
+.github/agents/
+.github/instructions/
+.github/skills/
+tools/apex-prompts/
+AGENTS.md

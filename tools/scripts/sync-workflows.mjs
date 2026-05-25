@@ -13,7 +13,7 @@
  * npm run sync:workflows -- --dry-run
  */
 
-import { mkdirSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const UPSTREAM_OWNER = "jonathan-vella";
@@ -21,8 +21,22 @@ const UPSTREAM_REPO = "azure-agentic-infraops";
 const UPSTREAM_REF = "main";
 const WORKFLOWS_DIR = ".github/workflows";
 
-// Workflows that are accelerator-specific and should NOT be overwritten
-const SKIP_FILES = new Set(["weekly-upstream-sync.yml"]);
+// Workflows that should NOT be synced from upstream into accelerator-derived
+// repositories. Two categories:
+//   1. Accelerator-only — exists in accelerator, never overwrite from upstream
+//      (e.g. the sync workflow itself).
+//   2. Upstream-only — relevant only to the upstream repo's own infrastructure
+//      (docs site deploy, link-check, e2e validation, sensei-branch maintenance);
+//      consumer projects should not run them.
+const SKIP_FILES = new Set([
+  // Accelerator-only
+  "weekly-upstream-sync.yml",
+  // Upstream-only (docs site, link-check, e2e tests, sensei branch lifecycle)
+  "docs.yml",
+  "link-check.yml",
+  "e2e-validation.yml",
+  "sensei-branch-maintenance.yml",
+]);
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run") || args.includes("--dry");
@@ -39,15 +53,13 @@ Options:
   --dry-run   Show what would be fetched without writing files
   --help      Show this help message
 
-Skipped files (accelerator-specific):
+Skipped files (accelerator-only or upstream-only — not relevant to consumer projects):
   ${[...SKIP_FILES].join(", ")}
 `);
   process.exit(0);
 }
 
-console.log(
-  `\n🔄 Sync Workflows from ${UPSTREAM_OWNER}/${UPSTREAM_REPO}@${UPSTREAM_REF}\n`,
-);
+console.log(`\n🔄 Sync Workflows from ${UPSTREAM_OWNER}/${UPSTREAM_REPO}@${UPSTREAM_REF}\n`);
 
 async function fetchJSON(url) {
   const res = await fetch(url);
@@ -77,17 +89,11 @@ async function main() {
   }
 
   if (!Array.isArray(files)) {
-    console.error(
-      "❌ Unexpected API response (not an array). Check the upstream repo path.",
-    );
+    console.error("❌ Unexpected API response (not an array). Check the upstream repo path.");
     process.exit(1);
   }
 
-  const ymlFiles = files.filter(
-    (f) =>
-      f.type === "file" &&
-      (f.name.endsWith(".yml") || f.name.endsWith(".yaml")),
-  );
+  const ymlFiles = files.filter((f) => f.type === "file" && (f.name.endsWith(".yml") || f.name.endsWith(".yaml")));
 
   if (ymlFiles.length === 0) {
     console.log("No workflow files found in upstream.");
@@ -104,7 +110,7 @@ async function main() {
 
   for (const file of ymlFiles) {
     if (SKIP_FILES.has(file.name)) {
-      console.log(`  ⏭️  ${file.name} (skipped — accelerator-specific)`);
+      console.log(`  ⏭️  ${file.name} (skipped — not synced to consumer projects)`);
       skipped++;
       continue;
     }
@@ -126,9 +132,7 @@ async function main() {
     }
   }
 
-  console.log(
-    `\n${dryRun ? "Dry run: " : ""}${synced} synced, ${skipped} skipped\n`,
-  );
+  console.log(`\n${dryRun ? "Dry run: " : ""}${synced} synced, ${skipped} skipped\n`);
 }
 
 main().catch((err) => {

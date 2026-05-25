@@ -29,13 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_sessions.add_argument("--limit", type=int, default=10, help="Max results (default: 10)")
     p_sessions.add_argument("--days", type=int, default=None, help="Only sessions updated within N days")
 
-    # Disabled for MVP — re-enable if needed.
-    # # search
-    # p_search = sub.add_parser("search", help="Full-text search across indexed content")
-    # p_search.add_argument("term", help="Search term")
-    # p_search.add_argument("--json", action="store_true", help="Output as JSON")
-    # p_search.add_argument("--days", type=int, default=None, help="Only results within N days")
-    # p_search.add_argument("--project", type=str, default=None, help="Filter by project name")
+    # search
+    p_search = sub.add_parser("search", help="Full-text search across indexed content")
+    p_search.add_argument("term", help="Search term")
+    p_search.add_argument("--json", action="store_true", help="Output as JSON")
+    p_search.add_argument("--days", type=int, default=None, help="Only results within N days")
+    p_search.add_argument("--project", type=str, default=None, help="Filter by project name")
 
     # show
     p_show = sub.add_parser("show", help="Full context dump for one project")
@@ -77,12 +76,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_cp.add_argument("sub_step", help="Sub-step identifier")
     p_cp.add_argument("--json", action="store_true", help="Output as JSON")
     p_cp.add_argument("--artifact", type=str, default=None, help="Artifact path to append")
+    # Telemetry (Wave 0 — measure-workflow-baseline.mjs consumes these)
+    p_cp.add_argument("--telemetry-step-start", type=str, default=None, help="ISO-8601 timestamp marking step start")
+    p_cp.add_argument("--telemetry-step-end", type=str, default=None, help="ISO-8601 timestamp marking step end")
+    p_cp.add_argument("--telemetry-elapsed-ms", type=int, default=None, help="Elapsed wall-clock ms for the step")
+    p_cp.add_argument("--telemetry-input-tokens", type=int, default=None, help="Input tokens consumed during the step")
+    p_cp.add_argument("--telemetry-output-tokens", type=int, default=None, help="Output tokens emitted during the step")
+    p_cp.add_argument("--telemetry-subagent-count", type=int, default=None, help="Number of subagent invocations")
+    p_cp.add_argument("--telemetry-validation-attempts", type=int, default=None, help="Validate-subagent retries (0+)")
+    p_cp.add_argument("--telemetry-cache-hits", type=int, default=None, help="Read-cache hits during the step")
 
     # complete-step
     p_complete = sub.add_parser("complete-step", help="Mark a step as complete")
     p_complete.add_argument("project", help="Project name")
     p_complete.add_argument("step", help="Step key (1, 2, 3, 3_5, 4, 5, 6, 7)")
     p_complete.add_argument("--json", action="store_true", help="Output as JSON")
+    p_complete.add_argument(
+        "--allow-missing-challenger",
+        action="store_true",
+        help="Bypass the mandatory challenger-findings gate (audited).",
+    )
+    p_complete.add_argument(
+        "--challenger-skip-reason",
+        type=str,
+        default=None,
+        help="Required audit reason when --allow-missing-challenger is used.",
+    )
 
     # decide
     p_decide = sub.add_parser("decide", help="Record a decision or decision_log entry")
@@ -98,21 +117,63 @@ def build_parser() -> argparse.ArgumentParser:
     p_finding = sub.add_parser("finding", help="Manage open_findings")
     p_finding.add_argument("project", help="Project name")
     p_finding.add_argument("--add", type=str, default=None, help="Add a finding")
+    p_finding.add_argument(
+        "--add-many",
+        dest="add_many",
+        type=str,
+        default=None,
+        metavar="SOURCE",
+        help="Bulk add: pass a file path containing a JSON array, or `-` for stdin. "
+        "Strings or {text: ...} objects accepted. Append-only — no dedup.",
+    )
     p_finding.add_argument("--remove", type=str, default=None, help="Remove a finding")
     p_finding.add_argument("--json", action="store_true", help="Output as JSON")
 
-    # Disabled for MVP — re-enable if needed.
-    # # review-audit
-    # p_ra = sub.add_parser("review-audit", help="Manage review_audit entries")
-    # p_ra.add_argument("project", help="Project name")
-    # p_ra.add_argument("step", help="Step key (1, 2, 3, 3_5, 4, 5, 6, 7)")
-    # p_ra.add_argument("--complexity", type=str, default=None, help="Complexity level")
-    # p_ra.add_argument("--passes-planned", type=int, default=None, help="Passes planned")
-    # p_ra.add_argument("--passes-executed", type=int, default=None, help="Passes executed")
-    # p_ra.add_argument("--model", action="append", default=None, help="Model name (repeatable)")
-    # p_ra.add_argument("--skip", action="append", default=None, help="Skip pass number (repeatable)")
-    # p_ra.add_argument("--skip-reason", action="append", default=None, help="Skip reason (repeatable)")
-    # p_ra.add_argument("--json", action="store_true", help="Output as JSON")
+    # review-audit
+    p_ra = sub.add_parser("review-audit", help="Manage review_audit entries")
+    p_ra.add_argument("project", help="Project name")
+    p_ra.add_argument("step", help="Step key (1, 2, 3, 3_5, 4, 5, 6, 7)")
+    p_ra.add_argument("--complexity", type=str, default=None, help="Complexity level")
+    p_ra.add_argument("--passes-planned", type=int, default=None, help="Passes planned")
+    p_ra.add_argument("--passes-executed", type=int, default=None, help="Passes executed")
+    p_ra.add_argument("--model", action="append", default=None, help="Model name (repeatable)")
+    p_ra.add_argument("--skip", action="append", default=None, help="Skip pass number (repeatable)")
+    p_ra.add_argument("--skip-reason", action="append", default=None, help="Skip reason (repeatable)")
+    p_ra.add_argument("--json", action="store_true", help="Output as JSON")
+
+    # transition — composite checkpoint + decide + complete-step + start next
+    # (#425, Wave 4). Atomic across a single 00-session-state.json write.
+    p_tr = sub.add_parser(
+        "transition",
+        help="Atomic step transition: complete current, record decisions, start next",
+    )
+    p_tr.add_argument("project", help="Project name")
+    p_tr.add_argument("--from-step", dest="from_step", required=True, help="Step to leave")
+    p_tr.add_argument("--to-step", dest="to_step", required=True, help="Step to enter")
+    p_tr.add_argument(
+        "--decision",
+        action="append",
+        default=None,
+        metavar="KEY=VALUE",
+        help="Repeatable. Records into decisions{}. Use the legacy `decide` command for decision_log (Mode B) entries.",
+    )
+    p_tr.add_argument(
+        "--complete",
+        action="store_true",
+        help="Mark from-step complete (runs the challenger-findings gate first).",
+    )
+    p_tr.add_argument(
+        "--allow-missing-challenger",
+        action="store_true",
+        help="Bypass the mandatory challenger-findings gate (audited).",
+    )
+    p_tr.add_argument(
+        "--challenger-skip-reason",
+        type=str,
+        default=None,
+        help="Required audit reason when --allow-missing-challenger is used.",
+    )
+    p_tr.add_argument("--json", action="store_true", help="Output as JSON")
 
     return parser
 
@@ -130,9 +191,8 @@ def main(argv: list[str] | None = None) -> int:
         from .commands.files import run
     elif args.command == "sessions":
         from .commands.sessions import run
-    # Disabled for MVP — re-enable if needed.
-    # elif args.command == "search":
-    #     from .commands.search import run
+    elif args.command == "search":
+        from .commands.search import run
     elif args.command == "show":
         from .commands.show import run
     elif args.command == "decisions":
@@ -153,9 +213,10 @@ def main(argv: list[str] | None = None) -> int:
         from .commands.decide import run
     elif args.command == "finding":
         from .commands.finding import run
-    # Disabled for MVP — re-enable if needed.
-    # elif args.command == "review-audit":
-    #     from .commands.review_audit import run
+    elif args.command == "review-audit":
+        from .commands.review_audit import run
+    elif args.command == "transition":
+        from .commands.transition import run
     else:
         parser.print_help()
         return 1

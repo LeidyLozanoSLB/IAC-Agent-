@@ -1,6 +1,6 @@
 ---
 name: azure-defaults
-description: "Azure infrastructure defaults: regions, tags, naming (CAF), AVM-first policy, security baseline, unique suffix patterns. USE FOR: any agent generating or planning Azure resources. DO NOT USE FOR: artifact template structures (use azure-artifacts), pricing lookups (read references/pricing-guidance.md on demand)."
+description: '**UTILITY SKILL** — Azure infrastructure defaults: regions, tags, naming (CAF), AVM-first policy, security baseline, unique suffix patterns. WHEN: "Azure naming convention", "CAF naming", "resource tags", "AVM module", "security baseline", "region default". USE FOR: any agent generating or planning Azure resources. DO NOT USE FOR: artifact template structures (use azure-artifacts), pricing lookups (read references/pricing-guidance.md on demand).'
 compatibility: Works with Claude Code, GitHub Copilot, VS Code, and any Agent Skills compatible tool.
 license: MIT
 metadata:
@@ -11,8 +11,14 @@ metadata:
 
 # Azure Defaults Skill
 
-Single source of truth for Azure infrastructure configuration.
+IaC-flavoured mirror of the canonical Azure defaults declared in
+[`.github/copilot-instructions.md`](../../copilot-instructions.md#azure-defaults-canonical).
 Deep-dive content lives in `references/` — load on demand.
+
+> **Canonical source rule**: if the tables below disagree with
+> [`copilot-instructions.md`](../../copilot-instructions.md#azure-defaults-canonical),
+> the canonical declaration wins. This skill restates them for IaC-output
+> convenience only.
 
 ---
 
@@ -28,8 +34,10 @@ Deep-dive content lives in `references/` — load on demand.
 
 ### Required Tags (Azure Policy Enforced)
 
-**These 4 tags are the MINIMUM baseline.** Always defer to
-`04-governance-constraints.md` for the actual required tag list.
+**These 4 tags are the MINIMUM baseline** (PascalCase, case-sensitive —
+mixing `owner` + `Owner` triggers `AmbiguousPolicyEvaluationPaths`).
+Always defer to `04-governance-constraints.md` for the project's actual
+required list.
 
 | Tag           | Required | Example Values           |
 | ------------- | -------- | ------------------------ |
@@ -37,12 +45,6 @@ Deep-dive content lives in `references/` — load on demand.
 | `ManagedBy`   | Yes      | `Bicep` or `Terraform`   |
 | `Project`     | Yes      | Project identifier       |
 | `Owner`       | Yes      | Team or individual name  |
-
-> **Tag Casing Rule**: Use PascalCase exactly as shown above (`Environment`,
-> `ManagedBy`, `Project`, `Owner`). Never emit both `owner` and `Owner` or
-> `environment` and `Environment` in the same template — Azure Policy treats
-> case-variant tag keys as ambiguous evaluation paths
-> (`AmbiguousPolicyEvaluationPaths` error).
 
 ### Unique Suffix Pattern
 
@@ -65,20 +67,46 @@ var uniqueSuffix = uniqueString(resourceGroup().id)
 For AVM pitfalls and deprecation patterns, read
 `references/security-baseline-full.md`.
 
+### Cost Monitoring Baseline
+
+Non-negotiable for prod. Governance (`04-governance-constraints.json`
+`cost_monitoring.*`) always wins. Budget thresholds: 5 notifications
+(actual 80/100/125 + forecast 100/125). Required: budget + Action Group
+(AVM, create-or-reuse via preflight) + subscription-scoped anomaly alert.
+Opt-out via `cost_monitoring_mode ∈ {enforced, minimal, deferred}`
+(`minimal`/`deferred` non-prod only).
+
+For the full contract, AVM lookup, governance precedence, and exception
+schema, read [`references/cost-alerts-baseline.md`](references/cost-alerts-baseline.md).
+For stack-specific snippets, read
+[`references/cost-alerts-bicep.md`](references/cost-alerts-bicep.md) or
+[`references/cost-alerts-terraform.md`](references/cost-alerts-terraform.md).
+
+### VNet Planning Baseline
+
+Interactive. Architect Phase 6b (between 6a SKU confirmation and Step 7
+pricing) runs the gate whenever **either** trigger holds:
+(a) any `services[].requires[]` row contains `vnet-integration` or
+`private-endpoints`, OR (b) any `services[].service_name` is in the
+vnet-attached whitelist (App Gateway, AKS, VM/VMSS, APIM internal,
+Bastion, Azure Firewall, VPN/ER Gateway, NAT Gateway, App Gateway for
+Containers). Default address space `10.0.0.0/16` (greenfield;
+at least `/22`). Recommendation style: a single subnet table followed
+by per-row `Apply edit / Skip / Done` askMe loop. Opt-out via
+`vnet_planning_mode ∈ {guided, fast, deferred}` (`deferred` blocked
+for prod). Governance `network_constraints` always wins.
+
+For the full contract — trigger contract, askQuestions templates,
+subnet sizing matrix per workload with Microsoft Learn citations,
+CIDR math, existing-VNet validation, AVM modules — read
+[`references/vnet-planning.md`](references/vnet-planning.md).
+
 ### Deprecated Services (Do NOT Recommend for Greenfield)
 
-| Deprecated Service     | Replacement                      | Since      | Notes                         |
-| ---------------------- | -------------------------------- | ---------- | ----------------------------- |
-| Azure AD B2C           | Microsoft Entra External ID      | May 2025   | Not available for new tenants |
-| Redis Enterprise E50   | Azure Managed Redis (Enterprise) | March 2027 | Plan migration before EOL     |
-| CDN WAF (classic)      | Front Door Standard/Premium WAF  | 2025       | CDN WAF creation blocked      |
-| App Gateway v1         | App Gateway v2                   | April 2026 | Classic SKU retiring          |
-| CDN Standard Microsoft | Front Door Standard              | 2027       | Migration required            |
-
-**Rule**: Never recommend deprecated services for greenfield projects.
-Before recommending any service with a multi-year RI commitment, verify
-the service retirement timeline extends beyond the commitment period.
-Check Microsoft Learn deprecation announcements.
+Never recommend deprecated services (Azure AD B2C, Redis Enterprise E50,
+CDN WAF classic, App Gateway v1, CDN Standard Microsoft) for greenfield.
+Full retirement table + replacement guidance:
+[`references/deprecated-services.md`](references/deprecated-services.md).
 
 ---
 
@@ -108,15 +136,51 @@ For extended abbreviations and length-constraint examples, read
 ## Azure Verified Modules (AVM)
 
 1. **ALWAYS** check AVM availability first
-2. Use AVM defaults for SKUs when available
-3. **NEVER** write raw Bicep/TF for a resource that has an AVM module
+2. **ALWAYS pin to the latest published stable version** — resolve live
+   at plan time; never reuse a pin from a prior project or training data
+3. Use AVM defaults for SKUs when available
+4. **NEVER** write raw Bicep/TF for a resource that has an AVM module
 
-For the full Bicep + Terraform AVM module registry, read
-`references/avm-modules.md`.
+For module paths, the live-lookup procedure (MCR for Bicep,
+`registry.terraform.io` for Terraform, MCP equivalents), the validator
+(`npm run validate:avm-versions:freeze` — MUST run before
+`apex-recall complete-step 4`), and the structured `pin_policy` schema
+for stale-pin exceptions, read
+[`references/avm-modules.md`](references/avm-modules.md).
 
 ---
 
-## Template-First Output Rules
+## Rules
+
+All baseline rules (region, tags, security, cost monitoring, deprecated
+services) are stated in **Quick Reference** above — that is the canonical
+form. The invariants below are gate-level / non-negotiable:
+
+- **AVM-first** — never write raw Bicep/TF for a resource that has an AVM module
+- **Pin AVM live at plan time** — stale pins require `pin_policy.mode = "exception"` in `04-iac-contract.json`; enforced by `npm run validate:avm-versions:freeze`
+- **Tag casing is case-sensitive** — never emit both `owner` and `Owner` (`AmbiguousPolicyEvaluationPaths` error)
+- **Unique suffix** — generate `uniqueString(resourceGroup().id)` ONCE per deployment
+- **Governance wins** — `04-governance-constraints.md` overrides any default in this skill (tags, regions, SKUs, cost monitoring)
+- **VNet planning is interactive** — never auto-pick CIDRs without confirmation.
+  Trigger: any `services[].requires[] ∈ {vnet-integration, private-endpoints}` **OR**
+  `services[].service_name` in vnet-attached whitelist. Governance
+  `network_constraints` overrides defaults. Contract:
+  [`references/vnet-planning.md`](references/vnet-planning.md).
+
+## Steps
+
+1. **Read Quick Reference** — region, tags, suffix, security baseline
+2. **Cross-check governance** — `04-governance-constraints.md` overrides defaults
+3. **Pick AVM modules** — resolve the latest stable version live (see [`references/avm-modules.md`](references/avm-modules.md))
+4. **Apply naming + tags** — CAF table above; load [`references/naming-full-examples.md`](references/naming-full-examples.md) for length-constrained resources
+5. **Apply security baseline** — see Quick Reference; load [`references/security-baseline-full.md`](references/security-baseline-full.md) when AVM parameters surface deprecation
+6. **Run the VNet planning gate** — when the trigger contract holds (see VNet Planning Baseline above). Skip when `decisions.vnet_planning_mode = deferred` (sandbox only). Contract: [`references/vnet-planning.md`](references/vnet-planning.md)
+7. **Apply cost monitoring** — see Quick Reference; load [`references/cost-alerts-baseline.md`](references/cost-alerts-baseline.md) for the full cost contract
+8. **Validate** — `npm run validate:iac-security-baseline` + `lint:bicep` / `terraform fmt && validate`
+
+---
+
+## Output Rules & Checklist
 
 | Rule         | Requirement                                    |
 | ------------ | ---------------------------------------------- |
@@ -126,30 +190,9 @@ For the full Bicep + Terraform AVM module registry, read
 | No omissions | All template H2s must appear in output         |
 | Attribution  | `> Generated by {agent} agent \| {YYYY-MM-DD}` |
 
----
-
-## Validation Checklist
-
-- [ ] Output saved to `agent-output/{project}/`
-- [ ] All required H2 headings present and correctly ordered
-- [ ] All 4 required tags included in resource definitions
-- [ ] Unique suffix used for globally unique names
-- [ ] Security baseline settings applied
-- [ ] Region defaults correct
-
----
-
-## Gotchas
-
-- **Tag casing is case-sensitive** — Use PascalCase exactly: `Environment`,
-  `ManagedBy`, `Project`, `Owner`. Never emit both `owner` and `Owner` in the
-  same template — Azure Policy treats case-variant keys as ambiguous →
-  `AmbiguousPolicyEvaluationPaths` error.
-- **Never recommend deprecated services for greenfield** — Azure AD B2C
-  (retired May 2025), CDN WAF classic, App Gateway v1, etc. Check the
-  Deprecated Services list in Quick Reference.
-- **AVM-first is non-negotiable** — NEVER write raw Bicep/Terraform for a
-  resource that has an AVM module available.
+Before saving: confirm output path is `agent-output/{project}/`, all 4
+required tags are present, `uniqueSuffix` is wired into globally-unique
+names, and region defaults match the table above.
 
 ---
 
@@ -163,6 +206,7 @@ Load these on demand — do NOT read all at once:
 | `references/avm-modules.md`                 | Looking up AVM module paths or versions                 |
 | `references/security-baseline-full.md`      | Debugging AVM parameter issues or checking deprecations |
 | `references/pricing-guidance.md`            | Running cost estimates with Azure Pricing MCP           |
+| `references/cost-estimate-parent-contract.md` | Parent-side delegation contract for `cost-estimate-subagent` (loaded by 03 + 08) |
 | `references/service-matrices.md`            | Mapping user requirements to Azure service tiers        |
 | `references/waf-criteria.md`                | Scoring WAF pillar assessments                          |
 | `references/governance-discovery.md`        | Discovering Azure Policy constraints                    |
@@ -171,3 +215,9 @@ Load these on demand — do NOT read all at once:
 | `references/azure-cli-auth-validation.md`   | Validating Azure CLI auth before deployments            |
 | `references/terraform-conventions.md`       | Generating Terraform (HCL) code                         |
 | `references/research-workflow.md`           | Following the standard 4-step research pattern          |
+| `references/tag-strategy.md`                | Choosing the greenfield CAF tag fallback (no policy)    |
+| `references/workflow-gates.md`              | Looking up cross-agent gate protocols (SKU/budget/etc.) |
+| `references/cost-alerts-baseline.md`        | Full cost-monitoring contract (scope matrix, modes, governance) |
+| `references/cost-alerts-bicep.md`           | Bicep snippets for budget + Action Group + scheduledActions |
+| `references/cost-alerts-terraform.md`       | Terraform snippets for budget + Action Group + anomaly  |
+| `references/vnet-planning.md`               | VNet planning gate — trigger contract, askQuestions templates, subnet sizing matrix |

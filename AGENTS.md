@@ -1,29 +1,20 @@
-# IAC-Agent
-
-> Agentic Infrastructure-as-Code for Azure. Verified. Well-Architected. Deployable.
-
-A multi-agent orchestration system for Azure platform engineering.
-Specialized AI agents collaborate through a structured multi-step workflow:
-**Requirements → Architecture → Governance → Plan → Bicep Code → Deploy → Documentation**.
+# APEX
 
 ## Setup Commands
 
 ```bash
-# Clone and open in dev container
-git clone <repo-url>
-cd IAC-Agent-
-code .
-# F1 → Dev Containers: Reopen in Container
+# Clone the Accelerator template and open in dev container
+# https://github.com/jonathan-vella/azure-agentic-infraops-accelerator
+git clone https://github.com/YOUR-USERNAME/my-infraops-project.git && cd my-infraops-project
+code . # then: F1 → Dev Containers: Reopen in Container
 
-# Install Node.js dependencies (validation scripts, linting)
-npm install
-
-# Azure + GitHub environment setup (OIDC, secrets, RBAC)
-npm run setup
+npm install                              # Node.js deps (validators, linting)
+npm run setup                            # Azure + GitHub OIDC/secrets/RBAC
 ```
 
-> **Note:** Python dependencies (diagrams, apex-recall) are installed
-> automatically by the dev container's `post-create.sh` script. No manual `pip install` is needed.
+> Python deps (diagrams, Azure Pricing MCP, apex-recall) install automatically
+> via the dev container's `post-create.sh`. Setup details:
+> https://jonathan-vella.github.io/azure-agentic-infraops/getting-started/azure-setup/
 
 ## Build & Validation
 
@@ -31,144 +22,111 @@ npm run setup
 # Full validation suite
 npm run validate:all
 
-# Individual checks
+# Individual checks (most-used)
 npm run lint:md                          # Markdown linting
 npm run lint:json                        # JSON/JSONC validation
-npm run lint:agent-frontmatter           # Agent definition frontmatter
-npm run lint:skills-format               # Skill file format
-npm run validate:instruction-checks      # Instruction file format and reference validation
-npm run lint:artifact-templates          # Artifact template compliance
-npm run lint:h2-sync                     # H2 heading sync between templates and artifacts
-npm run lint:governance-refs             # Governance reference validation
-npm run validate:session-state           # Session state JSON schema validation
-npm run validate:session-lock            # Session lock/claim model validation
-npm run validate:workflow-graph          # Workflow DAG graph validation
-npm run validate:agent-registry          # Agent registry consistency
-npm run validate:iac-security-baseline   # IaC security baseline (TLS, HTTPS, blob, identity, SQL auth)
-npm run lint:workflow-table-sync          # Workflow table ↔ workflow-graph.json sync
+npm run validate:agents                  # Agent + prompt frontmatter, model alignment
+npm run validate:agent-registry          # Registry shape (file path, model, step)
+npm run validate:iac-security-baseline   # TLS/HTTPS/Entra-only/no-public-blob baseline
+npm run lint:safe-shell                  # No interactive shell prompts in committed snippets
 
-# E2E Ralph Loop
-npm run e2e:validate                     # Validate artifacts (structural, no agent invocation)
-npm run e2e:benchmark                    # Benchmark scoring (8 dimensions, 0-100)
+# Full list (≈30 scripts) → npm run | grep -E "^  (lint|validate|test):" or
+# https://jonathan-vella.github.io/azure-agentic-infraops/reference/validation-reference/
 
-# Pre-commit/pre-push hooks (installed via lefthook)
-npm run prepare                          # Install hooks
+# Pre-commit/pre-push hooks (installed via lefthook on `npm run prepare`)
 git push                                 # Triggers diff-based-push-check.sh automatically
 
-# Bicep validation (replace {project} with actual project name)
-bicep build infra/bicep/{project}/main.bicep
-bicep lint infra/bicep/{project}/main.bicep
+# IaC validation
+bicep build infra/bicep/{project}/main.bicep && bicep lint infra/bicep/{project}/main.bicep
+terraform fmt -check -recursive infra/terraform/ && npm run validate:terraform
 ```
 
 ## Code Style
 
-### Naming Conventions (CAF)
-
-Follow Azure Cloud Adoption Framework naming:
-
-| Resource        | Abbreviation | Pattern                     | Max Length |
-| --------------- | ------------ | --------------------------- | ---------- |
-| Resource Group  | `rg`         | `rg-{project}-{env}`        | 90         |
-| Virtual Network | `vnet`       | `vnet-{project}-{env}`      | 64         |
-| Key Vault       | `kv`         | `kv-{short}-{env}-{suffix}` | 24         |
-| Storage Account | `st`         | `st{short}{env}{suffix}`    | 24         |
-| App Service     | `app`        | `app-{project}-{env}`       | 60         |
-
-### Required Tags (Azure Policy Enforced)
-
-Every Azure resource must include these 4 tags at minimum:
-
-| Tag           | Example Values           |
-| ------------- | ------------------------ |
-| `Environment` | `dev`, `staging`, `prod` |
-| `ManagedBy`   | `Bicep`                  |
-| `Project`     | Project identifier       |
-| `Owner`       | Team or individual name  |
-
-### Default Region
-
-- **Primary**: `swedencentral` (EU GDPR-compliant)
-- **Exception**: Static Web Apps → `westeurope`
-- **Failover**: `germanywestcentral`
-
-### Azure Verified Modules (AVM) First
-
-Always prefer AVM modules over raw resource definitions:
-
-- **Bicep**: `br/public:avm/res/{provider}/{resource}:{version}`
-
-### Unique Suffix Pattern
-
-Generate once, pass everywhere:
-
-- **Bicep**: `uniqueString(resourceGroup().id)`
+Code style (CAF naming, required tags, default region, AVM-first, unique
+suffix pattern) is documented in
+[.github/skills/azure-defaults/SKILL.md](.github/skills/azure-defaults/SKILL.md).
+Agents read that file as part of their mandatory skill load; this file
+no longer duplicates the tables.
 
 ## Security Baseline
 
-These are non-negotiable for all generated infrastructure code:
-
-- TLS 1.2 minimum on all services
-- HTTPS-only traffic (`supportsHttpsTrafficOnly: true`)
-- No public blob access (`allowBlobPublicAccess: false`)
-- No shared key access on storage (`allowSharedKeyAccess: false`) — use Entra ID
-- Managed Identity preferred over keys/connection strings
-- Azure AD-only authentication for SQL
-- App Service HTTP/2 enabled (`http20Enabled: true`)
-- Container Registry admin user disabled (`adminUserEnabled: false`)
-- MySQL/PostgreSQL SSL enforcement required
-- Public network access disabled for production data services (dev/test exempt)
-- Never hardcode secrets, connection strings, or API keys — use Key Vault references
-- Always check `04-governance-constraints.md` for subscription-level Azure Policy requirements
+The non-negotiable security baseline (TLS 1.2 minimum, HTTPS-only, no public
+blob, no shared key, Managed Identity, Entra-only SQL, App Service HTTP/2,
+Container Registry admin disabled, MySQL/PostgreSQL SSL, no public network
+access for prod data services, no hardcoded secrets) is documented in
+[.github/instructions/references/iac-policy-compliance.md](.github/instructions/references/iac-policy-compliance.md).
+This is the source of truth for IaC validators (`validate:iac-security-baseline`)
+and the Architect / IaC Planner / CodeGen agents. Always cross-check
+`04-governance-constraints.md` for subscription-level Azure Policy
+requirements that may add to the baseline.
 
 ## Commit & PR Guidelines
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
-
-```text
-<type>[optional scope]: <description>
-```
-
-| Type       | Purpose                        |
-| ---------- | ------------------------------ |
-| `feat`     | New feature                    |
-| `fix`      | Bug fix                        |
-| `docs`     | Documentation only             |
-| `refactor` | Code refactor (no feature/fix) |
-| `ci`       | CI/config changes              |
-| `chore`    | Maintenance/misc               |
-
-Scopes: `agents`, `skills`, `instructions`, `bicep`, `mcp`, `docs`, `scripts`.
-
-Always run `npm run lint:md` and relevant validations before committing.
+`<type>[optional scope]: <description>`. Types: `feat` (feature), `fix`,
+`docs`, `refactor`, `ci`, `chore`. Scopes: `agents`, `skills`, `instructions`,
+`bicep`, `terraform`, `mcp`, `docs`, `scripts`. Run `npm run lint:md` and
+relevant validations before committing.
 
 ## Agent Workflow
 
-| Step | Phase        | Output                                               | Review                 |
-| ---- | ------------ | ---------------------------------------------------- | ---------------------- |
-| 1    | Requirements | `01-requirements.md`                                 | 1×                     |
-| 2    | Architecture | `02-architecture-assessment.md`                      | 1× (opt-in: multi-pass)|
-| 3.5  | Governance   | `04-governance-constraints.md/.json`                 | 1×                     |
-| 4    | IaC Plan     | `04-implementation-plan.md` + `04-*-diagram.py/.png` | opt-in (default: skip) |
-| 5    | Bicep Code   | `infra/bicep/{project}/`                             | opt-in (default: skip) |
-| 6    | Bicep Deploy | `06-deployment-summary.md`                           | —                      |
-| 7    | As-Built     | `07-*.md` documentation suite                        | —                      |
-| Post | Lessons      | `09-lessons-learned.json/.md`                        | —                      |
+| Step | Phase        | Output                                                   | Review                                                    |
+| ---- | ------------ | -------------------------------------------------------- | --------------------------------------------------------- |
+| 1    | Requirements | `01-requirements.md` + `sku-manifest.{json,md}` (rev 1)  | 1× comprehensive (mandatory)                              |
+| 2    | Architecture | `02-architecture-assessment.md` + cost estimate          | 1× comprehensive + 1 cost-feasibility (opt-in: deep)      |
+| 3    | Design (opt) | `03-des-*.{py,png,md}` diagrams and ADRs                 | opt-in: 1× comprehensive on ADRs (skipped when no Step 3) |
+| 3.5  | Governance   | `04-governance-constraints.md/.json`                     | 1× governance-reconciliation (skip when no constraints)   |
+| 4    | IaC Plan     | `04-implementation-plan.md` + `04-*-diagram.py/.png`     | 1× comprehensive (mandatory; opt-in: deep)                |
+| 5    | IaC Code     | `infra/bicep/{project}/` or `infra/terraform/{project}/` | opt-in (default: skip)                                    |
+| 6    | Deploy       | `06-deployment-summary.md`                               | none (policy precheck folded in as informational H2)      |
+| 7    | As-Built     | `07-*.md` documentation suite                            | —                                                         |
+| Post | Lessons      | `09-lessons-learned.json/.md`                            | —                                                         |
 
-All outputs go to `agent-output/{project}/`.
-Programmatic source of truth: `.github/skills/workflow-engine/templates/workflow-graph.json`.
-The Orchestrator agent orchestrates the full workflow with human approval gates.
-Review column = adversarial passes by challenger subagents, complexity-dependent.
-Conditional early exits reduce actual passes.
-Reviews target AI-generated creative decisions (architecture, governance, plan, code) not
-tool output (what-if/plan previews).
+All outputs → `agent-output/{project}/`. Source of truth:
+`.github/skills/workflow-engine/templates/workflow-graph.json`.
+The Orchestrator drives all steps with human approval gates. The unified
+05-IaC Planner feeds dual IaC tracks: Bicep (06b/07b) and Terraform (06t/07t).
+Review column = single-pass `comprehensive` (or `governance-reconciliation` at
+Step 3.5) by challenger subagents — the default flow never auto-fires
+multi-pass. Multi-pass reviews are an explicit opt-in via
+`decisions.review_depth = "deep"` (captured once per project by
+01-Orchestrator) or via direct `10-Challenger` invocation. Reviews target
+AI-generated creative decisions — not tool output (what-if/plan previews).
+
+**Mandatory challenger reviews are enforced at runtime, not just at commit.**
+`apex-recall complete-step` refuses to mark Steps 1, 2, 3.5, or 4 as complete
+when the gating artifact exists but the matching `challenge-findings-*.json`
+sidecar is missing (exit code 2). Intentional bypass requires
+`--allow-missing-challenger --challenger-skip-reason "<text>"`, which
+persists an audit entry in `decisions.challenger_skip[]`. A CI/commit
+fallback (`npm run validate:challenger-presence`, also wired into the
+lefthook `artifact-validation` hook) catches the same drift if session
+state was edited by hand.
+
+Artifact lint is enforced by the lefthook `artifact-validation` pre-commit
+hook and the `10-Challenger` review — agents do not call
+`lint:artifact-templates` or `markdownlint-cli2` directly against
+`agent-output/**` (see
+[`.github/instructions/agent-authoring.instructions.md`](.github/instructions/agent-authoring.instructions.md#no-direct-markdownlint-on-agent-output-rule)).
+
+`sku-manifest.{json,md}` is created at Step 1 (user pins only — empty
+`services[]` is the common case) and mutated through Step 7: Step 2
+authoring, Step 3.5 read-only findings, Step 4 reconciliation +
+`requires[]` cross-check, Step 6 substitution on quota/region conflict
+(via the block-with-escalation pattern), Step 7 bidirectional drift
+detection. Authoring rules:
+[`.github/instructions/sku-manifest.instructions.md`](.github/instructions/sku-manifest.instructions.md).
 
 ## Conventions Detail
 
-The sections above (Code Style, Security Baseline) are always loaded. For deeper
-guidance, agents should read these on demand:
+For deeper guidance, agents read these on demand:
 
-- **Bicep conventions**: `infra/bicep/AGENTS.md`
-- **azd multi-project rules**: `.github/instructions/azure-yaml.instructions.md` (auto-loaded for `azure.yaml`)
-- **Azure infrastructure defaults**: `.github/skills/azure-defaults/SKILL.md`
-- **Workflow DAG (machine-readable)**: `.github/skills/workflow-engine/templates/workflow-graph.json`
-- **Full validation reference**: [Validation & Linting Reference](https://jonathan-vella.github.io/azure-agentic-infraops/reference/validation-reference/)
+- Bicep conventions: `infra/bicep/AGENTS.md`
+- Terraform conventions: `infra/terraform/AGENTS.md`
+- azd multi-project rules: `.github/instructions/azure-yaml.instructions.md` (auto-loaded for `azure.yaml`)
+- Terminal hygiene (no `mv -i`/`rm -i`/`read -p`, pipe long output to file):
+  `.github/instructions/no-interactive-shell.instructions.md` (enforced by `lint:safe-shell`)
+- Azure defaults: `.github/skills/azure-defaults/SKILL.md`
+- Workflow DAG: `.github/skills/workflow-engine/templates/workflow-graph.json`
+- Full validation reference: <https://jonathan-vella.github.io/azure-agentic-infraops/reference/validation-reference/>

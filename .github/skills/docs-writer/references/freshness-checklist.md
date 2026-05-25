@@ -65,13 +65,13 @@ appropriate category table. Remove entries for deleted skills.
 
 ### 4. Prompt Guide Currency
 
-**Source of truth**: `site/src/content/docs/guides/prompt-guide/` pages.
+**Source of truth**: `site/src/content/docs/reference/prompts/` pages.
 
 **Files to check**:
 
 | File                                             | What to verify                          |
 | ------------------------------------------------ | --------------------------------------- |
-| `site/src/content/docs/guides/prompt-guide/*.md` | Agent and skill tables match filesystem |
+| `site/src/content/docs/reference/prompts/*.md` | Agent and skill tables match filesystem |
 
 **Auto-fix**: Update tables to match current agent/skill inventory.
 
@@ -131,9 +131,9 @@ template counts.
 
 **Files to check**:
 
-| File                                    | What to verify                                      |
-| --------------------------------------- | --------------------------------------------------- |
-| `QUALITY_SCORE.md`                      | Grades reflect current state; change log up to date |
+| File                                          | What to verify                                      |
+| --------------------------------------------- | --------------------------------------------------- |
+| `QUALITY_SCORE.md`                            | Grades reflect current state; change log up to date |
 | `tools/tests/exec-plans/tech-debt-tracker.md` | Active items still relevant; resolved items moved   |
 
 **Auto-fix**: Update grades and log entries in `QUALITY_SCORE.md`. Mark resolved debt items

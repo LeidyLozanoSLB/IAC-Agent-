@@ -1,4 +1,5 @@
 <!-- ref:azure-context-v1 -->
+
 # Azure Context (Subscription & Location)
 
 Detect and confirm Azure subscription and location before generating artifacts. Run region capacity check for customer selected location
@@ -47,6 +48,7 @@ azd config get defaults
 ```
 
 Returns JSON with any configured defaults:
+
 ```json
 {
   "subscription": "25fd0362-aa79-488b-b37b-d6e892009fdf",
@@ -57,6 +59,7 @@ Returns JSON with any configured defaults:
 Use these as **recommended** values if present.
 
 If no defaults, fall back to az CLI:
+
 ```bash
 az account show --query "{name:name, id:id}" -o json
 ```
@@ -66,6 +69,7 @@ az account show --query "{name:name, id:id}" -o json
 Use `ask_user` with the **actual subscription name and ID**:
 
 ✅ **Correct:**
+
 ```
 Question: "Which Azure subscription would you like to deploy to?"
 Choices: [
@@ -75,6 +79,7 @@ Choices: [
 ```
 
 ❌ **Wrong** (never do this):
+
 ```
 Choices: [
   "Use default subscription",  // ← Does not show actual name
@@ -83,6 +88,7 @@ Choices: [
 ```
 
 If user wants a different subscription:
+
 ```bash
 az account list --output table
 ```
@@ -109,6 +115,7 @@ Choices: [
 ⚠️ Do NOT include regions that don't support all services — deployment will fail.
 
 ---
+
 ## Step 5: Check Resource Provisioning Limits
 
 1. **List resource types and quantities** that will be deployed from the planned architecture (e.g., 2x Standard D4s v3 VMs, 1x VNet, 3x Storage Accounts)
@@ -119,10 +126,10 @@ Choices: [
    - If `az quota list` returns `BadRequest` error, the resource provider doesn't support quota API
 
 3. **For resources that don't support quota API** (e.g., Microsoft.DocumentDB, or when you get `BadRequest` from `az quota list`):
-   - Invoke **azure-resource-lookup** skill to count existing deployments of that resource type in the selected subscription and region
+   - Invoke **azure-resources** skill (Mode A: Lookup) to count existing deployments of that resource type in the selected subscription and region
    - Use the count to calculate: `Total After Deployment = Current Count + Planned Deployment`
    - Reference [Azure service limits documentation](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits) for the limit value
-   - Document in provisioning checklist as "Fetched from: azure-resource-lookup + Official docs"
+   - Document in provisioning checklist as "Fetched from: azure-resources (Mode A: Lookup) + Official docs"
 
 4. **Validate deployment capacity**:
    - Compare planned deployment quantities against available quota (limit - current usage)
@@ -135,6 +142,7 @@ After confirmation, record in `infra/{iac}/{project}/.azure/plan.md`:
 
 ```markdown
 ## Azure Context
+
 - **Subscription**: jongdevdiv (25fd0362-aa79-488b-b37b-d6e892009fdf)
 - **Location**: eastus2
 ```
@@ -180,6 +188,7 @@ azd env get-values
 ```
 
 **Why this is critical:**
+
 - `az account show` returns the Azure CLI's default subscription
 - `azd` maintains its own configuration with potentially different defaults
 - If you don't set `AZURE_SUBSCRIPTION_ID` explicitly, azd will use its own default

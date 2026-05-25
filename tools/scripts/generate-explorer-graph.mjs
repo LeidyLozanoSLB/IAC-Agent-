@@ -14,8 +14,10 @@
  * Edges:
  *  - agent → subagent (frontmatter `agents:` field)
  *  - agent handoff → agent (frontmatter `handoffs[].agent`)
- * agent → skill (from `tools/registry/agent-registry.json` skills array)
- * agent ⇢ skill (from `tools/registry/agent-registry.json` capability_skills array, kind="capability")
+ * agent → skill (extracted from agent body via the canonical
+ *   `(?:.github/)?skills/{slug}/SKILL.md` reference pattern shared with
+ *   tools/scripts/validate-orphaned-content.mjs).
+ * subagent → skill follows the same extraction.
  *  - prompt → agent (slug match, e.g. `02-requirements` → `02-Requirements`)
  *  - instruction → agent/skill/prompt (via `applyTo` glob + name match)
  *  - workflow → validator (parse YAML for `npm run …`, expanding composite scripts)
@@ -30,14 +32,10 @@ import { parseFrontmatter } from "./_lib/parse-frontmatter.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), "../..");
-const OUT_PATH = join(
-  REPO_ROOT,
-  "site/public/architecture-explorer-graph.json",
-);
+const OUT_PATH = join(REPO_ROOT, "site/public/architecture-explorer-graph.json");
 
-const GITHUB_BASE =
-  "https://github.com/jonathan-vella/azure-agentic-infraops/blob/main/";
-const DOCS_BASE = "/azure-agentic-infraops/";
+const GITHUB_BASE = "https://github.com/jonathan-vella/azure-agentic-infraops/blob/main/";
+const _DOCS_BASE = "/azure-agentic-infraops/";
 
 /** @type {Array<{id: string, key: string, label: string, color: string, shape: string}>} */
 const CATEGORIES = [
@@ -126,6 +124,18 @@ function asArray(v) {
   return Array.isArray(v) ? v : [v];
 }
 
+// Canonical agent/subagent → skill reference pattern. Mirrors
+// SKILL_REFERENCE_PATTERN in tools/scripts/validate-orphaned-content.mjs.
+const SKILL_REFERENCE_PATTERN = /(?:\.github\/)?skills\/([a-z0-9]+(?:-[a-z0-9]+)*)\/SKILL\.md/g;
+
+function extractSkillRefs(body) {
+  const found = new Set();
+  for (const match of body.matchAll(SKILL_REFERENCE_PATTERN)) {
+    found.add(match[1]);
+  }
+  return [...found];
+}
+
 // ---------- Node collectors ----------
 
 function collectAgents() {
@@ -149,6 +159,7 @@ function collectAgents() {
         invocable: fm["user-invocable"] !== "false",
         subagents: asArray(fm.agents),
         handoffTargets: extractHandoffAgents(content),
+        skills: extractSkillRefs(content),
       },
     };
   });
@@ -168,7 +179,7 @@ function collectSubagents() {
       description: fm.description || "",
       path: relative(REPO_ROOT, path),
       links: { source: GITHUB_BASE + relative(REPO_ROOT, path) },
-      meta: { model: asArray(fm.model)[0] || null },
+      meta: { model: asArray(fm.model)[0] || null, skills: extractSkillRefs(content) },
     };
   });
 }
@@ -177,9 +188,7 @@ function collectSkills() {
   const skillsDir = join(REPO_ROOT, ".github/skills");
   let dirs = [];
   try {
-    dirs = readdirSync(skillsDir).filter((d) =>
-      statSync(join(skillsDir, d)).isDirectory(),
-    );
+    dirs = readdirSync(skillsDir).filter((d) => statSync(join(skillsDir, d)).isDirectory());
   } catch {
     return [];
   }
@@ -225,7 +234,9 @@ function collectInstructions() {
 }
 
 function collectPrompts() {
-  const dir = join(REPO_ROOT, ".github/prompts");
+  // Prompts live in tools/apex-prompts/ (not .github/prompts/) so they are
+  // never auto-loaded by VS Code Copilot's prompt-file discovery.
+  const dir = join(REPO_ROOT, "tools/apex-prompts");
   const files = listFiles(dir, (f) => f.endsWith(".prompt.md"));
   return files.map((path) => {
     const content = readFileSync(path, "utf8");
@@ -245,10 +256,7 @@ function collectPrompts() {
 
 function collectWorkflows() {
   const dir = join(REPO_ROOT, ".github/workflows");
-  const files = listFiles(
-    dir,
-    (f) => f.endsWith(".yml") || f.endsWith(".yaml"),
-  );
+  const files = listFiles(dir, (f) => f.endsWith(".yml") || f.endsWith(".yaml"));
   return files.map((path) => {
     const name = basename(path).replace(/\.(yml|yaml)$/, "");
     return {
@@ -285,7 +293,7 @@ function collectValidators() {
     description: scripts[name] || "",
     path: "package.json",
     links: {
-      source: GITHUB_BASE + "package.json",
+      source: `${GITHUB_BASE}package.json`,
     },
     meta: { command: scripts[name] || "" },
   }));
@@ -298,10 +306,9 @@ function collectMcpServers() {
     id: `mcp:${slug(name)}`,
     category: "mcp",
     label: name,
-    description:
-      cfg.type === "http" ? `HTTP: ${cfg.url}` : `stdio: ${cfg.command || ""}`,
+    description: cfg.type === "http" ? `HTTP: ${cfg.url}` : `stdio: ${cfg.command || ""}`,
     path: ".vscode/mcp.json",
-    links: { source: GITHUB_BASE + ".vscode/mcp.json" },
+    links: { source: `${GITHUB_BASE}.vscode/mcp.json` },
     meta: { type: cfg.type || "" },
   }));
 }
@@ -332,9 +339,7 @@ function buildEdges(nodes) {
 
   const findNode = (name, category) => {
     // Try exact label, then slug match, optionally scoped by category.
-    const candidates = [byLabel.get(name), bySlug.get(slug(name))].filter(
-      Boolean,
-    );
+    const candidates = [byLabel.get(name), bySlug.get(slug(name))].filter(Boolean);
     if (category) {
       const scoped = candidates.find((c) => c.category === category);
       if (scoped) return scoped;
@@ -374,51 +379,22 @@ function buildEdges(nodes) {
     }
   }
 
-  // Agent -> Skill (from agent-registry.json)
-  let registry = { agents: {}, subagents: {} };
-  try {
-    registry = readJson(join(REPO_ROOT, "tools/registry/agent-registry.json"));
-  } catch {
-    // optional
-  }
-  const registryAgents = registry.agents || {};
-  const registrySubagents = registry.subagents || {};
-  const allRegistryEntries = { ...registryAgents, ...registrySubagents };
-  for (const [roleSlug, entry] of Object.entries(allRegistryEntries)) {
-    // Handle nested entries (iac-code.bicep, deploy.terraform)
-    const subEntries = entry.skills
-      ? [entry]
-      : Object.values(entry).filter(
-          (v) => v && typeof v === "object" && v.skills,
-        );
-    for (const sub of subEntries) {
-      const agentPath = sub.agent;
-      if (!agentPath) continue;
-      const agentName = basename(agentPath, ".agent.md");
-      const agentNode =
-        findNode(agentName, "agent") || findNode(agentName, "subagent");
-      if (!agentNode) continue;
-      for (const skillName of sub.skills || []) {
-        const skillNode = findNode(skillName, "skill");
-        if (skillNode) {
-          edges.push({
-            id: `${agentNode.id}--uses->${skillNode.id}`,
-            source: agentNode.id,
-            target: skillNode.id,
-            kind: "uses",
-          });
-        }
-      }
-      for (const skillName of sub.capability_skills || []) {
-        const skillNode = findNode(skillName, "skill");
-        if (skillNode) {
-          edges.push({
-            id: `${agentNode.id}--capability->${skillNode.id}`,
-            source: agentNode.id,
-            target: skillNode.id,
-            kind: "capability",
-          });
-        }
+  // NOTE: Agent → Skill edges were dropped in Phase 2 of the
+  // context-window-optimization plan and have since been re-introduced
+  // (2026-05). The wiring is discovered at runtime by parsing each agent
+  // body for the canonical `(?:.github/)?skills/{slug}/SKILL.md` reference
+  // (same regex used by tools/scripts/validate-orphaned-content.mjs).
+  for (const n of nodes) {
+    if (n.category !== "agent" && n.category !== "subagent") continue;
+    for (const skillSlug of n.meta.skills || []) {
+      const target = nodes.find((m) => m.category === "skill" && m.id === `skill:${skillSlug}`);
+      if (target) {
+        edges.push({
+          id: `${n.id}--uses-skill->${target.id}`,
+          source: n.id,
+          target: target.id,
+          kind: "uses-skill",
+        });
       }
     }
   }
@@ -427,9 +403,7 @@ function buildEdges(nodes) {
   for (const n of nodes) {
     if (n.category !== "prompt") continue;
     const promptSlug = n.id.replace(/^prompt:/, "");
-    const target = nodes.find(
-      (m) => m.category === "agent" && slug(m.label) === promptSlug,
-    );
+    const target = nodes.find((m) => m.category === "agent" && slug(m.label) === promptSlug);
     if (target) {
       edges.push({
         id: `${n.id}--invokes->${target.id}`,
@@ -463,13 +437,9 @@ function buildEdges(nodes) {
         (m) =>
           m.category === cat &&
           m.id !== n.id &&
-          new RegExp(`\\b${slug(m.label).replace(/-/g, "[-_]")}\\b`, "i").test(
-            applyTo,
-          ),
+          new RegExp(`\\b${slug(m.label).replace(/-/g, "[-_]")}\\b`, "i").test(applyTo),
       );
-      const targets = explicit
-        ? [explicit]
-        : nodes.filter((m) => m.category === cat && m.id !== n.id);
+      const targets = explicit ? [explicit] : nodes.filter((m) => m.category === cat && m.id !== n.id);
       for (const t of targets) {
         edges.push({
           id: `${n.id}--applies-to->${t.id}`,
@@ -484,9 +454,7 @@ function buildEdges(nodes) {
   // Workflow -> Validator (parse YAML for `npm run <script>` references,
   // recursively expanding composite scripts like `validate:_node`).
   const pkgScripts = readJson(join(REPO_ROOT, "package.json")).scripts || {};
-  const validatorLabels = new Set(
-    nodes.filter((m) => m.category === "validator").map((m) => m.label),
-  );
+  const validatorLabels = new Set(nodes.filter((m) => m.category === "validator").map((m) => m.label));
   function expandScript(name, seen = new Set()) {
     if (seen.has(name)) return [];
     seen.add(name);
@@ -513,9 +481,7 @@ function buildEdges(nodes) {
       for (const validatorName of expandScript(scriptName)) {
         if (seen.has(validatorName)) continue;
         seen.add(validatorName);
-        const validator = nodes.find(
-          (m) => m.category === "validator" && m.label === validatorName,
-        );
+        const validator = nodes.find((m) => m.category === "validator" && m.label === validatorName);
         if (validator) {
           edges.push({
             id: `${n.id}--runs->${validator.id}`,
@@ -542,9 +508,7 @@ function buildEdges(nodes) {
     for (const mcpNode of mcpNodes) {
       const mcpName = mcpNode.label.toLowerCase();
       if (seen.has(mcpNode.id)) continue;
-      const re = new RegExp(
-        `\\b${mcpName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-      );
+      const re = new RegExp(`\\b${mcpName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
       if (re.test(body)) {
         seen.add(mcpNode.id);
         edges.push({
@@ -559,9 +523,7 @@ function buildEdges(nodes) {
 
   // Skill -> Skill (parse SKILL.md body/description for references to other skills, e.g. "delegates to drawio")
   const skillNodes = nodes.filter((m) => m.category === "skill");
-  const skillSlugMap = new Map(
-    skillNodes.map((s) => [s.id.replace(/^skill:/, ""), s]),
-  );
+  const skillSlugMap = new Map(skillNodes.map((s) => [s.id.replace(/^skill:/, ""), s]));
   for (const n of skillNodes) {
     let body;
     try {
@@ -608,16 +570,7 @@ function main() {
   const workflows = collectWorkflows();
   const mcp = collectMcpServers();
 
-  const nodes = [
-    ...agents,
-    ...subagents,
-    ...skills,
-    ...instructions,
-    ...prompts,
-    ...validators,
-    ...workflows,
-    ...mcp,
-  ];
+  const nodes = [...agents, ...subagents, ...skills, ...instructions, ...prompts, ...validators, ...workflows, ...mcp];
 
   const edges = buildEdges(nodes);
 
@@ -672,13 +625,9 @@ function main() {
     edges,
   };
 
-  writeFileSync(OUT_PATH, JSON.stringify(graph, null, 2) + "\n");
-  console.log(
-    `✅ Generated ${relative(REPO_ROOT, OUT_PATH)} — ${nodes.length} nodes, ${edges.length} edges`,
-  );
-  console.log(
-    "   " + categories.map((c) => `${c.label}:${c.count}`).join("  "),
-  );
+  writeFileSync(OUT_PATH, `${JSON.stringify(graph, null, 2)}\n`);
+  console.log(`✅ Generated ${relative(REPO_ROOT, OUT_PATH)} — ${nodes.length} nodes, ${edges.length} edges`);
+  console.log(`   ${categories.map((c) => `${c.label}:${c.count}`).join("  ")}`);
 }
 
 main();

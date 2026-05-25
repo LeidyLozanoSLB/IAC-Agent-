@@ -1,6 +1,6 @@
 ---
 name: azure-cloud-migrate
-description: "Assess and migrate cross-cloud workloads to Azure. Generates assessment reports and converts code from AWS, GCP, or other providers to Azure services. WHEN: migrate Lambda to Azure Functions, migrate AWS to Azure, Lambda migration assessment, convert AWS serverless to Azure, migration readiness report, migrate from AWS, migrate from GCP, cross-cloud migration."
+description: '**WORKFLOW SKILL** — Assess and migrate cross-cloud workloads to Azure. Generates assessment reports and converts code from AWS, GCP, or other providers to Azure services. WHEN: "migrate Lambda to Azure Functions", "migrate AWS to Azure", "convert AWS serverless to Azure", "migration readiness report", "cross-cloud migration". DO NOT USE FOR: greenfield Azure deployment (azure-prepare), Azure-only refactor (azure-prepare).'
 license: MIT
 metadata:
   author: Microsoft
@@ -16,17 +16,22 @@ metadata:
 1. Follow phases sequentially — do not skip
 2. Generate assessment before any code migration
 3. Load the scenario reference and follow its rules
-4. Use `mcp_azure_mcp_get_bestpractices` and `mcp_azure_mcp_documentation` MCP tools
+4. Use `mcp_azure-mcp_get_bestpractices` and `mcp_azure-mcp_documentation` MCP tools
 5. Use the latest supported runtime for the target service
 6. Destructive actions require `ask_user` — [global-rules](references/services/functions/global-rules.md)
 
 ## Migration Scenarios
 
-| Source | Target | Reference |
-|--------|--------|-----------|
+The scenarios documented today are listed below. For other source platforms
+(GCP, on-premises, etc.), call `mcp_azure-mcp_documentation` with
+`command: "microsoft_docs_search"` to research the target Azure service and
+adapt the AWS-Lambda assessment workflow as a template.
+
+| Source     | Target          | Reference                                                                      |
+| ---------- | --------------- | ------------------------------------------------------------------------------ |
 | AWS Lambda | Azure Functions | [lambda-to-functions.md](references/services/functions/lambda-to-functions.md) |
 
-> No matching scenario? Use `mcp_azure_mcp_documentation` and `mcp_azure_mcp_get_bestpractices` tools.
+> No matching scenario? Use `mcp_azure-mcp_documentation` and `mcp_azure-mcp_get_bestpractices` tools.
 
 ## Output Directory
 
@@ -46,6 +51,6 @@ Track progress in `migration-status.md` — see [workflow-details.md](references
 
 Load these on demand — do NOT read all at once:
 
-| Reference | When to Load |
-| --------- | ------------ |
+| Reference                        | When to Load     |
+| -------------------------------- | ---------------- |
 | `references/workflow-details.md` | Workflow Details |

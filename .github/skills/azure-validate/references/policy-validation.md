@@ -1,4 +1,5 @@
 <!-- ref:policy-validation-v1 -->
+
 # Azure Policy Validation
 
 ## How to Validate Policies
@@ -16,7 +17,7 @@ az account show --query id -o tsv
 Call the Azure MCP Policy tool to retrieve policies for your subscription:
 
 ```
-mcp_azure_mcp_policy(command: "list", parameters: { subscription_id: "<subscription-id>" })
+mcp_azure-mcp_policy(command: "list", parameters: { subscription_id: "<subscription-id>" })
 ```
 
 Replace `<subscription-id>` with the actual subscription ID obtained from step 1.
@@ -31,12 +32,12 @@ When validating Azure policies for your subscription:
 
 ## Common Policy Issues
 
-| Issue | Resolution |
-|-------|------------|
-| Non-compliant resource SKUs | Update resource SKUs to comply with allowed values |
-| Missing required tags | Add required tags to resources in your infrastructure code |
-| Disallowed resource types | Replace with allowed alternatives or request policy exception |
-| Location restrictions | Deploy to allowed regions only |
+| Issue                       | Resolution                                                             |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Non-compliant resource SKUs | Update resource SKUs to comply with allowed values                     |
+| Missing required tags       | Add required tags to resources in your infrastructure code             |
+| Disallowed resource types   | Replace with allowed alternatives or request policy exception          |
+| Location restrictions       | Deploy to allowed regions only                                         |
 | Network security violations | Update NSG rules, firewall settings, or virtual network configurations |
 
 ## Next Steps

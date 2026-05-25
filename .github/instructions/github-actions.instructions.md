@@ -71,8 +71,7 @@ concurrency:
 | `ci.yml`                        | Required PR check: lint + all Node.js validators | PR + push to main/feature   |
 | `link-check.yml`                | Broken link detection in site docs               | Changes to site/ + weekly   |
 | `docs.yml`                      | Astro Starlight site deployment to Pages         | Push to main (site/)        |
-| `weekly-maintenance.yml`        | AVM version audit + docs freshness checks        | Weekly (Mon 07:00) + manual |
-| `azure-deprecation-tracker.yml` | Azure deprecation monitoring                     | Weekly (Mon 06:00) + manual |
+| `weekly-maintenance.yml`        | AVM version audit + docs freshness + Azure deprecation tracking (folds the retired `azure-deprecation-tracker.yml`) | Weekly (Mon 07:00) + manual |
 
 ## Validation Scripts
 
@@ -96,12 +95,12 @@ Workflows run these project validators:
 
 ## Patterns to Avoid
 
-| Anti-Pattern                    | Solution                                   |
-| ------------------------------- | ------------------------------------------ |
-| Pinning to `@main` or `@latest` | Use `@v6` major version tags               |
-| `npm install` in CI             | Use `npm ci` for deterministic installs    |
-| Missing `permissions` block     | Always declare least-privilege permissions |
-| Broad triggers (no path filter) | Scope with `paths:` to relevant files      |
-| Duplicate validation logic      | Reuse existing validator scripts           |
-| `actions/upload-artifact@v3`    | Use `@v4` (v3 is deprecated)               |
+| Anti-Pattern                    | Solution                                                  |
+| ------------------------------- | --------------------------------------------------------- |
+| Pinning to `@main` or `@latest` | Use `@v6` major version tags                              |
+| `npm install` in CI             | Use `npm ci` for deterministic installs                   |
+| Missing `permissions` block     | Always declare least-privilege permissions                |
+| Broad triggers (no path filter) | Scope with `paths:` to relevant files                     |
+| Duplicate validation logic      | Reuse existing validator scripts                          |
+| `actions/upload-artifact@v3`    | Use `@v4` (v3 is deprecated)                              |
 | `node-version: "20"` or older   | Use `node-version: "24"` — Node.js 20 is EOL (April 2026) |

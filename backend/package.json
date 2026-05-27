@@ -1,0 +1,23 @@
+{
+  "name": "iac-agent-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "POC backend: hosts the 02-Requirements agent behind an HTTP API",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "gray-matter": "^4.0.3",
+    "hono": "^4.6.0",
+    "openai": "^4.70.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

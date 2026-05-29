@@ -49,22 +49,6 @@
 ## References
 ```
 
-### 07-ab-cost-estimate.md
-
-```text
-## 💵 Cost At-a-Glance
-## ✅ Decision Summary
-## 🔁 Requirements → Cost Mapping
-## 📊 Top 5 Cost Drivers
-## 🏛️ Architecture Overview
-## 🧾 What We Are Not Paying For (Yet)
-## ⚠️ Cost Risk Indicators
-## 🎯 Quick Decision Matrix
-## 💰 Savings Opportunities
-## 🧾 Detailed Cost Breakdown
-## References
-```
-
 ### 07-backup-dr-plan.md
 
 ```text

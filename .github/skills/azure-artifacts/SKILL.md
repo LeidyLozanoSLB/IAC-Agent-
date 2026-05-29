@@ -94,7 +94,7 @@ When generating a Step N artifact, read the corresponding template:
 | Reference                                | When to Load                                         |
 | ---------------------------------------- | ---------------------------------------------------- |
 | `references/01-requirements-template.md` | Generating Step 1 requirements                       |
-| `references/02-architecture-template.md` | Generating Step 2 assessment or Step 3 cost estimate |
+| `references/02-architecture-template.md` | Generating Step 2 architecture assessment            |
 | `references/04-plan-template.md`         | Generating Step 4 plan, governance, or preflight     |
 | `references/05-code-template.md`         | Generating Step 5 implementation reference           |
 | `references/06-deploy-template.md`       | Generating Step 6 deployment summary                 |

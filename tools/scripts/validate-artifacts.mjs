@@ -50,13 +50,11 @@ const VALIDATOR_PATH = "tools/scripts/_lib/artifact-headings.mjs";
 const ARTIFACT_NAMES = [
   "01-requirements.md",
   "02-architecture-assessment.md",
-  "03-des-cost-estimate.md",
   "04-governance-constraints.md",
   "04-implementation-plan.md",
   "04-preflight-check.md",
   "05-implementation-reference.md",
   "06-deployment-summary.md",
-  "07-ab-cost-estimate.md",
   "07-backup-dr-plan.md",
   "07-compliance-matrix.md",
   "07-design-document.md",
@@ -258,8 +256,6 @@ const ARTIFACT_STRICTNESS = {
   "07-backup-dr-plan.md": "standard",
   "07-compliance-matrix.md": "standard",
   "07-documentation-index.md": "standard",
-  "03-des-cost-estimate.md": "standard",
-  "07-ab-cost-estimate.md": "standard",
   "README.md": "relaxed",
   "09-lessons-learned.md": "relaxed",
 };
@@ -295,8 +291,6 @@ const OPTIONAL_ALLOWED = {
   ],
   "07-compliance-matrix.md": ["## Security Controls Summary", "## References"],
   "07-documentation-index.md": ["## Architecture Overview", "## References"],
-  "03-des-cost-estimate.md": ["## References"],
-  "07-ab-cost-estimate.md": ["## References"],
   "README.md": [],
   "09-lessons-learned.md": ["## References"],
 };
@@ -322,8 +316,6 @@ const AGENTS = {
   "07-backup-dr-plan.md": ".github/skills/azure-artifacts/SKILL.md",
   "07-compliance-matrix.md": ".github/skills/azure-artifacts/SKILL.md",
   "07-documentation-index.md": ".github/skills/azure-artifacts/SKILL.md",
-  "03-des-cost-estimate.md": ".github/agents/03-architect.agent.md",
-  "07-ab-cost-estimate.md": ".github/skills/azure-artifacts/SKILL.md",
   "README.md": null,
   "09-lessons-learned.md": null,
 };
@@ -344,30 +336,15 @@ const TEMPLATES = {
   "07-backup-dr-plan.md": `${TEMPLATE_DIR}/07-backup-dr-plan.template.md`,
   "07-compliance-matrix.md": `${TEMPLATE_DIR}/07-compliance-matrix.template.md`,
   "07-documentation-index.md": `${TEMPLATE_DIR}/07-documentation-index.template.md`,
-  "03-des-cost-estimate.md": `${TEMPLATE_DIR}/03-des-cost-estimate.template.md`,
-  "07-ab-cost-estimate.md": `${TEMPLATE_DIR}/07-ab-cost-estimate.template.md`,
   "README.md": `${TEMPLATE_DIR}/PROJECT-README.template.md`,
   "09-lessons-learned.md": `${TEMPLATE_DIR}/09-lessons-learned.template.md`,
 };
 
 const STANDARD_DOC = ".github/instructions/markdown.instructions.md";
 
-const COST_ESTIMATE_ARTIFACTS = [
-  "03-des-cost-estimate.md",
-  "07-ab-cost-estimate.md",
-];
+const COST_ESTIMATE_ARTIFACTS = [];
 
 const DIAGRAM_ARTIFACT_EXPECTATIONS = {
-  "04-implementation-plan.md": [
-    {
-      image: "./04-dependency-diagram.png",
-      source: "./04-dependency-diagram.py",
-    },
-    {
-      image: "./04-runtime-diagram.png",
-      source: "./04-runtime-diagram.py",
-    },
-  ],
   "07-design-document.md": [
     {
       image: "./03-des-diagram.drawio.svg",
@@ -557,7 +534,6 @@ function validateStandardComponents(filePath, text, reportFn = warn) {
 
 const MERMAID_REQUIRED_TEMPLATES = [
   "01-requirements.md",
-  "02-architecture-assessment.md",
   "04-governance-constraints.md",
   "04-preflight-check.md",
   "05-implementation-reference.md",
@@ -578,11 +554,9 @@ function validateMermaidPresence(filePath, text, reportFn = warn) {
 }
 
 const TRAFFIC_LIGHT_TEMPLATES = [
-  "02-architecture-assessment.md",
   "04-governance-constraints.md",
   "05-implementation-reference.md",
   "06-deployment-summary.md",
-  "07-ab-cost-estimate.md",
   "07-compliance-matrix.md",
   "07-design-document.md",
 ];
@@ -605,12 +579,9 @@ function validateTrafficLight(filePath, text, reportFn = warn) {
 
 const COLLAPSIBLE_TEMPLATES = [
   "01-requirements.md",
-  "02-architecture-assessment.md",
-  "03-des-cost-estimate.md",
   "04-preflight-check.md",
   "05-implementation-reference.md",
   "06-deployment-summary.md",
-  "07-ab-cost-estimate.md",
   "07-backup-dr-plan.md",
   "07-compliance-matrix.md",
   "07-design-document.md",

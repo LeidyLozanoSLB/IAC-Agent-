@@ -7,7 +7,6 @@ This skill routes diagram requests to the appropriate specialized skill:
 | Diagram type                   | Target skill                             |
 | ------------------------------ | ---------------------------------------- |
 | Architecture diagrams          | [`drawio`](../drawio/)                   |
-| WAF / cost / compliance charts | [`python-diagrams`](../python-diagrams/) |
 | Inline markdown diagrams       | [`mermaid`](../mermaid/)                 |
 
 See [SKILL.md](SKILL.md) for the full routing table.

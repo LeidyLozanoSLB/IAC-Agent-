@@ -9,12 +9,10 @@
 
 - [✅ Requirements Validation](#-requirements-validation)
 - [💎 Executive Summary](#-executive-summary)
-- [🏛️ WAF Pillar Assessment](#-waf-pillar-assessment)
 - [📦 Resource SKU Recommendations](#-resource-sku-recommendations)
 - [🎯 Architecture Decision Summary](#-architecture-decision-summary)
 - [🚀 Implementation Handoff](#-implementation-handoff)
 - [🔒 Approval Gate](#-approval-gate)
-- [References](#references)
 
 </details>
 
@@ -22,7 +20,7 @@
 
 | ⬅️ Previous                              | 📑 Index            | Next ➡️                                            |
 | ---------------------------------------- | ------------------- | -------------------------------------------------- |
-| [01-requirements.md](01-requirements.md) | [README](README.md) | [03-des-cost-estimate.md](03-des-cost-estimate.md) |
+| [01-requirements.md](01-requirements.md) | [README](README.md) | [04-governance-constraints.md](04-governance-constraints.md) |
 
 ## ✅ Requirements Validation
 
@@ -30,7 +28,6 @@
 | ----------------------- | ------------------------------------ | ---------------- |
 | NFRs (SLA, RTO, RPO)    | ✅ Defined / ⚠️ Partial / ❌ Missing | {notes}          |
 | Compliance requirements | ✅ Defined / ⚠️ Partial / ❌ Missing | {notes}          |
-| Budget (approximate)    | ✅ Defined / ⚠️ Partial / ❌ Missing | {notes}          |
 | Scale requirements      | ✅ Defined / ⚠️ Partial / ❌ Missing | {notes}          |
 | Security controls       | ✅ Defined / ⚠️ Partial / ❌ Missing | {notes}          |
 | Data residency          | ✅ Defined / ⚠️ Partial / ❌ Missing | {notes}          |
@@ -70,137 +67,11 @@ flowchart TB
 
 ---
 
-## 🏛️ WAF Pillar Assessment
-
-### Overall Scores
-
-| Pillar                    | Score | Confidence       | Summary |
-| ------------------------- | ----- | ---------------- | ------- |
-| 🔒 Security               | /10   | High / Med / Low |         |
-| 🔄 Reliability            | /10   | High / Med / Low |         |
-| ⚡ Performance            | /10   | High / Med / Low |         |
-| 💰 Cost Optimization      | /10   | High / Med / Low |         |
-| 🔧 Operational Excellence | /10   | High / Med / Low |         |
-
-**Primary Pillar Optimized**: {pillar}
-**Trade-offs Accepted**: {trade-offs}
-
-![WAF Pillar Scores](./02-waf-scores.png)
-
-> Generate `02-waf-scores.png` using the pattern in `python-diagrams` skill →
-> `references/waf-cost-charts.md` → **Chart 1 – WAF Pillar Scores**.
-> Replace placeholder scores with the actual pillar values before running.
-
----
-
-### 🔒 Security Assessment ({score}/10)
-
-**Strengths:**
-
-- List strengths
-
-**Gaps:**
-
-- List gaps
-
-**Recommendations:**
-
-1. Recommendation 1
-2. Recommendation 2
-
-### 🔄 Reliability Assessment ({score}/10)
-
-**Strengths:**
-
-- List strengths
-
-**Gaps:**
-
-- List gaps
-
-**Recommendations:**
-
-1. Recommendation 1
-2. Recommendation 2
-
-### ⚡ Performance Assessment ({score}/10)
-
-**Strengths:**
-
-- List strengths
-
-**Gaps:**
-
-- List gaps
-
-**Recommendations:**
-
-1. Recommendation 1
-2. Recommendation 2
-
-### 💰 Cost Assessment ({score}/10)
-
-| Metric           | Value                              |
-| ---------------- | ---------------------------------- |
-| Monthly Estimate | ~${X}/month                        |
-| Annual Estimate  | ~${X}/year                         |
-| Budget Status    | {✅ Within budget / ⚠️ Over by $X} |
-| Confidence       | {High / Medium / Low}              |
-
-> 📎 Full cost breakdown: [03-des-cost-estimate.md](03-des-cost-estimate.md)
-
-**Cost Optimization Applied:**
-
-- List optimizations
-
-### 🔧 Operational Excellence Assessment ({score}/10)
-
-**Strengths:**
-
-- List strengths
-
-**Gaps:**
-
-- List gaps
-
-**Recommendations:**
-
-1. Recommendation 1
-2. Recommendation 2
-
----
-
 ## 📦 Resource SKU Recommendations
 
-| Service   | Recommended SKU | Configuration | Monthly Est. | Justification |
-| --------- | --------------- | ------------- | ------------ | ------------- |
-| {service} | {sku}           | {config}      | ${amount}    | {why}         |
-
-<details>
-<summary><strong>{Service 1}</strong> — Pricing Tier Comparison</summary>
-
-| Tier     | vCPU   | RAM    | Price/mo | Fits?        |
-| -------- | ------ | ------ | -------- | ------------ |
-| Basic    | {spec} | {spec} | ${price} | ❌ / ⚠️ / ✅ |
-| Standard | {spec} | {spec} | ${price} | ❌ / ⚠️ / ✅ |
-| Premium  | {spec} | {spec} | ${price} | ❌ / ⚠️ / ✅ |
-
-**Selected**: {tier} — {justification}
-
-</details>
-
-<details>
-<summary><strong>{Service 2}</strong> — Pricing Tier Comparison</summary>
-
-| Tier     | Capacity | Price/mo | Fits?        |
-| -------- | -------- | -------- | ------------ |
-| Basic    | {spec}   | ${price} | ❌ / ⚠️ / ✅ |
-| Standard | {spec}   | ${price} | ❌ / ⚠️ / ✅ |
-| Premium  | {spec}   | ${price} | ❌ / ⚠️ / ✅ |
-
-**Selected**: {tier} — {justification}
-
-</details>
+| Service   | Recommended SKU | Configuration | Justification |
+| --------- | --------------- | ------------- | ------------- |
+| {service} | {sku}           | {config}      | {why}         |
 
 ---
 
@@ -213,11 +84,11 @@ flowchart TB
 
 ### Top Architecture Risks
 
-| Risk   | WAF Pillar               | Likelihood                  | Impact                      | Mitigation   |
-| ------ | ------------------------ | --------------------------- | --------------------------- | ------------ |
-| {risk} | {🔒 / 🔄 / ⚡ / 💰 / 🔧} | {🔴 High / 🟡 Med / 🟢 Low} | {🔴 High / 🟡 Med / 🟢 Low} | {mitigation} |
+| Risk   | Likelihood                  | Impact                      | Mitigation   |
+| ------ | --------------------------- | --------------------------- | ------------ |
+| {risk} | {🔴 High / 🟡 Med / 🟢 Low} | {🔴 High / 🟡 Med / 🟢 Low} | {mitigation} |
 
-> Limit to the top 5 architecture-level risks. Pillar-specific gaps remain in the WAF assessment above.
+> Limit to the top 5 architecture-level risks.
 
 ---
 
@@ -227,12 +98,11 @@ flowchart TB
 
 The architecture is approved for implementation with the following key parameters:
 
-| Parameter      | Value                                  |
-| -------------- | -------------------------------------- |
-| Region         | {region}                               |
-| Environment    | {env}                                  |
-| Budget         | ${budget}/month (estimated: ${actual}) |
-| Resource Count | {count}                                |
+| Parameter      | Value      |
+| -------------- | ---------- |
+| Region         | {region}   |
+| Environment    | {env}      |
+| Resource Count | {count}    |
 
 ### Resources to Provision
 
@@ -260,16 +130,6 @@ The architecture is approved for implementation with the following key parameter
 > [!IMPORTANT]
 > **🏗️ Architecture Assessment Complete**
 >
-> | Pillar      | Score |
-> | ----------- | ----- |
-> | Security    | X/10  |
-> | Reliability | X/10  |
-> | Performance | X/10  |
-> | Cost        | X/10  |
-> | Operations  | X/10  |
->
-> **Estimated Monthly Cost**: ~$X ({within budget / over budget by $Y})
->
 > **Confidence Level**: {High / Medium / Low}
 >
 > - [ ] **Approved** — proceed to iac-planner
@@ -280,28 +140,13 @@ The architecture is approved for implementation with the following key parameter
 
 ---
 
-## References
-
-> [!NOTE]
-> 📚 The following Microsoft Learn resources informed this assessment.
-
-| Topic                      | Link                                                                                        |
-| -------------------------- | ------------------------------------------------------------------------------------------- |
-| Well-Architected Framework | [Overview](https://learn.microsoft.com/azure/well-architected/)                             |
-| Security Checklist         | [WAF Security](https://learn.microsoft.com/azure/well-architected/security/checklist)       |
-| Reliability Checklist      | [WAF Reliability](https://learn.microsoft.com/azure/well-architected/reliability/checklist) |
-| Cost Optimization          | [WAF Cost](https://learn.microsoft.com/azure/well-architected/cost-optimization/checklist)  |
-| Azure Pricing Calculator   | [Calculator](https://azure.microsoft.com/pricing/calculator/)                               |
-
----
-
-_Assessment performed using Azure Well-Architected Framework. Pricing data from Azure Pricing MCP ({date})._
+_Assessment performed using Azure Well-Architected Framework principles._
 
 ---
 
 <div align="center">
 
-| ⬅️ [01-requirements.md](01-requirements.md) | 🏠 [Project Index](README.md) | ➡️ [03-des-cost-estimate.md](03-des-cost-estimate.md) |
+| ⬅️ [01-requirements.md](01-requirements.md) | 🏠 [Project Index](README.md) | ➡️ [04-governance-constraints.md](04-governance-constraints.md) |
 | ------------------------------------------- | ----------------------------- | ----------------------------------------------------- |
 
 </div>

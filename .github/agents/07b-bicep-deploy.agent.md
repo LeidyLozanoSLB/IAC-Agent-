@@ -61,7 +61,7 @@ handoffs:
     send: true
   - label: "↩ Return to Step 2"
     agent: 03-Architect
-    prompt: "Review the deployment results and validate WAF compliance of the deployed infrastructure. Assessment at `agent-output/{project}/02-architecture-assessment.md`."
+    prompt: "Review the deployment results and validate governance policy compliance of the deployed infrastructure. Constraints at `agent-output/{project}/04-governance-constraints.md`."
     send: false
   - label: "↩ Return to Orchestrator"
     agent: 01-Orchestrator
@@ -84,7 +84,7 @@ Context tiers: follow context-shredding skill.
 
 Follow `iac-common/references/deploy-shared-workflow.md` for:
 
-- Pre-deploy challenger review
+<!-- - Pre-deploy challenger review   (CH3: challenger disabled) -->
 - Security baseline preflight
 - Copy-then-fill artifact protocol (uses `06-deployment-summary.template.md`)
 - Post-deploy smart PR flow

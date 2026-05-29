@@ -3,7 +3,7 @@ name: 06b-Bicep CodeGen
 description: Expert Azure Bicep Infrastructure as Code specialist that creates near-production-ready Bicep templates following best practices and Azure Verified Modules standards. Validates, tests, and ensures code quality.
 model: ["Claude Sonnet 4.6"]
 user-invocable: true
-agents: ["bicep-validate-subagent", "challenger-review-subagent"]
+agents: ["bicep-validate-subagent"]   # challenger-review-subagent disabled for performance — re-enable for complex greenfield deployments if needed.
 tools:
   [
     vscode,
@@ -98,9 +98,10 @@ Do not modify architecture decisions — hand back to the Planner if the plan ne
 
 ## Subagent Budget
 
-This agent orchestrates 2 subagents: bicep-validate-subagent (lint+review), challenger-review-subagent.
+This agent orchestrates 1 subagent: bicep-validate-subagent (lint+review).
 Invoke bicep-validate-subagent for combined lint and code review.
-Use challenger-review-subagent only for adversarial review after validation passes.
+Challenger/adversarial review (challenger-review-subagent) is DISABLED for performance —
+re-enable for complex greenfield deployments if needed.
 
 ## Read Skills First
 
@@ -188,7 +189,7 @@ Run `apex-recall show <project> --json` for full project context. Do not read `0
 - **My step**: 5
 - **Sub-steps**: `phase_1_preflight` → `phase_1.5_governance` →
   `phase_1.6_compacted` → `phase_1.7_mode` → `phase_2_scaffold` → `phase_3_modules` →
-  `phase_4_lint` → `phase_5_challenger` → `phase_6_artifact`
+  `phase_4_lint` → `phase_6_artifact`   <!-- phase_5_challenger removed — challenger disabled for performance -->
 - **Resume**: Use the `apex-recall show` output to detect resume point.
 - **Checkpoints**: `apex-recall checkpoint <project> 5 <phase_name> --json`
 - **Decisions**: `apex-recall decide <project> --decision "<text>" --rationale "<why>" --step 5 --json`
@@ -378,31 +379,26 @@ Await both results. Both must pass before Phase 4.5.
 Run `npm run validate:iac-security-baseline` on `infra/bicep/{project}/` —
 violations are a hard gate (fix before Phase 4.5).
 
-### Phase 4.5: Adversarial Code Review (1–3 passes, complexity-based)
+### Phase 4.5: Adversarial Code Review — DISABLED
+
+> **Challenger disabled for performance — re-enable for complex greenfield deployments if needed.**
+> No adversarial/challenger review runs at this step. Phase 4 validation (lint + code review via
+> `bicep-validate-subagent`) and the security-baseline check remain the quality gate. Proceed
+> directly to Phase 6 (artifact).
+
+<!-- The original complexity-routed challenger review is preserved here (commented) for re-enablement:
 
 Read `azure-defaults/references/adversarial-review-protocol.md` for lens table and invocation template.
-Check `decisions.complexity` from `apex-recall show <project> --json` to determine pass count per the review matrix in `adversarial-review-protocol.md`.
+Check `decisions.complexity` to determine pass count.
+Complexity routing: simple = 1 pass (comprehensive); standard/complex = up to 3 passes with early exit
+(skip pass 2 if pass 1 has 0 must_fix and <2 should_fix; skip pass 3 if pass 2 has 0 must_fix).
+Invoke challenger subagents with artifact_type = "iac-code", rotating review_focus per protocol.
+Read `azure-defaults/references/challenger-selection-rules.md` for pass routing and skip rules.
+Write results to `challenge-findings-iac-code-pass{N}.json`. Fix any must_fix items, re-validate.
+Review audit (MANDATORY): apex-recall review-audit <project> 5 --passes-executed <N> --json
+-->
 
-**Complexity routing**:
-
-- `simple`: 1 pass only (comprehensive lens) — skip passes 2 and 3
-- `standard`: up to 3 passes (early exit: skip pass 2 if pass 1 has
-  0 `must_fix` and <2 `should_fix`; skip pass 3 if pass 2 has 0 `must_fix`)
-- `complex`: up to 3 passes (same early exit rules; use batch subagent
-  for passes 2+3 if pass 1 triggers them)
-
-Invoke challenger subagents with `artifact_type = "iac-code"`,
-rotating `review_focus` per protocol.
-
-**Read** `azure-defaults/references/challenger-selection-rules.md` for the
-pass routing table, model selection, and conditional skip rules.
-
-Follow the conditional pass rules from `adversarial-review-protocol.md` —
-skip pass 2 if pass 1 has 0 `must_fix` and <2 `should_fix`;
-skip pass 3 if pass 2 has 0 `must_fix`.
-Write results to `challenge-findings-iac-code-pass{N}.json`. Fix any `must_fix` items, re-validate, re-run failing pass.
-
-**Review audit** (MANDATORY): `apex-recall review-audit <project> 5 --passes-executed <N> --json`
+**Review audit** (MANDATORY): `apex-recall review-audit <project> 5 --passes-executed 0 --json`
 
 Save validation status in `05-implementation-reference.md`. Run `npm run lint:artifact-templates`.
 

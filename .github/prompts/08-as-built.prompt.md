@@ -12,7 +12,7 @@ Generate comprehensive workload documentation after successful deployment.
 Before running, confirm these artifacts exist in `agent-output/{project}/`:
 
 - `01-requirements.md` — Original requirements (required)
-- `02-architecture-assessment.md` — WAF assessment (required)
+- `02-architecture-assessment.md` — architecture assessment (resources, key decisions, AVM modules) (required)
 - `04-implementation-plan.md` — Planned architecture (required)
 - `06-deployment-summary.md` — Deployment results (required)
 - `05-implementation-reference.md` — IaC validation results (optional)
@@ -45,4 +45,5 @@ Before running, confirm these artifacts exist in `agent-output/{project}/`:
   without monetary values.
 - Follow the H2 structure from templates exactly.
 - Use real deployed resource data where available; fall back to planned values if not deployed.
+- Do NOT query Microsoft Learn — read live Azure state (via azure-mcp) and the existing artifact files only.
 - No challenger review is required for Step 7.

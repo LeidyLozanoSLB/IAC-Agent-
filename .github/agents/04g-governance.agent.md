@@ -4,7 +4,8 @@ description: Azure governance discovery agent. Queries Azure Policy assignments 
 model: ["Claude Sonnet 4.6"]
 argument-hint: Discover governance constraints for a project
 user-invocable: true
-agents: ["challenger-review-subagent"]
+# agents: ["challenger-review-subagent"]   # Challenger disabled for performance — re-enable for complex greenfield deployments if needed.
+agents: []
 tools:
   [
     vscode,
@@ -15,14 +16,14 @@ tools:
     edit,
     search,
     web,
-    # "azure-mcp/*",                                                                        # Disabled — policy document mode. Re-enable when live Azure discovery is needed.
+    "azure-mcp/*",
     "microsoft-learn/*",
     todo,
-    # ms-azuretools.vscode-azure-github-copilot/azure_recommend_custom_modes,              # Disabled — policy document mode. Re-enable when live Azure discovery is needed.
-    # ms-azuretools.vscode-azure-github-copilot/azure_query_azure_resource_graph,          # Disabled — policy document mode. Re-enable when live Azure discovery is needed.
-    # ms-azuretools.vscode-azure-github-copilot/azure_get_auth_context,                   # Disabled — policy document mode. Re-enable when live Azure discovery is needed.
-    # ms-azuretools.vscode-azure-github-copilot/azure_set_auth_context,                   # Disabled — policy document mode. Re-enable when live Azure discovery is needed.
-    # ms-azuretools.vscode-azureresourcegroups/azureActivityLog,                           # Disabled — policy document mode. Re-enable when live Azure discovery is needed.
+    ms-azuretools.vscode-azure-github-copilot/azure_recommend_custom_modes,
+    ms-azuretools.vscode-azure-github-copilot/azure_query_azure_resource_graph,
+    ms-azuretools.vscode-azure-github-copilot/azure_get_auth_context,
+    ms-azuretools.vscode-azure-github-copilot/azure_set_auth_context,
+    ms-azuretools.vscode-azureresourcegroups/azureActivityLog,
   ]
 handoffs:
   - label: "▶ Refresh Governance"
@@ -46,13 +47,18 @@ handoffs:
 <output_contract>
 Primary artifact: agent-output/{project}/04-governance-constraints.md — human-readable governance constraints.
 Secondary artifact: agent-output/{project}/04-governance-constraints.json — machine-readable, consumed by IaC Planner and Bicep CodeGen.
-Source of truth: .github/skills/governance/company-policies.md — sole policy source; no Azure queries.
+Sources: live Azure Policy assignments (target subscription) MERGED with the company policy
+document (.github/skills/governance/company-policies.md). The policy document is the floor;
+live discovery adds to it. Falls back to policy-doc-only if the live check fails.
 </output_contract>
 
 <scope_fencing>
-This agent reads from the company policy document only. It does NOT query Azure, authenticate
-to any subscription, or run discovery scripts. All policy information comes exclusively from
-`.github/skills/governance/company-policies.md`.
+This agent discovers governance constraints from two sources: (1) live Azure Policy
+assignments in the target subscription, and (2) the company policy document
+`.github/skills/governance/company-policies.md`. The company policy document is the FLOOR —
+live discovery adds to it but never removes from it. If the live check fails for any reason
+(auth error, timeout, no permissions), the agent falls back gracefully to policy-document-only
+mode and never hard-stops.
 </scope_fencing>
 
 ## Prerequisites Check — Do This First
@@ -70,7 +76,7 @@ If the file does **not** exist, stop immediately and show this message — do no
 Run `apex-recall show <project> --json` for full project context. Do not read `00-session-state.json` directly.
 
 - **My step**: 3.5
-- **Sub-step checkpoints**: `phase_1_read` → `phase_2_parse` → `phase_3_md` → `phase_4_json` → `phase_5_save`
+- **Sub-step checkpoints**: `phase_0_live_discovery` → `phase_1_read` → `phase_2_parse` → `phase_3_md` → `phase_4_json` → `phase_5_save`
 - **Checkpoints**: `apex-recall checkpoint <project> 3_5 <phase_name> --json`
 - **On completion**: `apex-recall complete-step <project> 3_5 --json`
 
@@ -81,6 +87,46 @@ Run `apex-recall show <project> --json` for full project context. Do not read `0
 3. **Read** `.github/skills/azure-defaults/SKILL.digest.md` — regions, tags, security baseline
 
 ---
+
+## Step 0 — Live Subscription Policy Discovery (Do This FIRST)
+
+Query the live target subscription for Azure Policy assignments BEFORE reading the policy
+document, then merge the two sources.
+
+1. **Validate auth** — confirm an Azure context is available
+   (`azure_get_auth_context`, or `az account show --query id -o tsv`).
+2. **Query live policy assignments** — use `azure-mcp` / Resource Graph to list active
+   Azure Policy assignments in scope (subscription + inherited management-group policies).
+   Capture each policy's effect (`deny`, `audit`, `deployIfNotExists`, `modify`, `append`,
+   `disabled`), display name, scope, resource types, and property paths where available.
+3. **Capture the subscription ID** for the JSON `subscription_id` field.
+
+### Merge Rules (company-policies.md is the FLOOR)
+
+When combining live discovery with the company policy document:
+
+| Situation                                          | Action                                          |
+| -------------------------------------------------- | ----------------------------------------------- |
+| Policy exists in BOTH sources                      | Keep the **stricter** of the two                |
+| Policy exists ONLY in the live subscription        | **Include** it                                  |
+| Policy exists ONLY in `company-policies.md`        | **Include** it                                  |
+
+The company policy document is the floor: subscription discovery **adds** to it, **never
+removes** from it. A live `audit` policy does not downgrade a company-doc `deny` for the
+same control — keep the `deny`.
+
+### Graceful Fallback (NEVER hard-stop)
+
+If the live check fails for ANY reason (auth error, timeout, no permissions, malformed
+response):
+
+- Do NOT hard-stop. Continue with the company policy document only.
+- Set `"discovery_source": "policy-doc-only (live check failed)"` in the JSON output.
+- Note the failure reason in the Step 6 summary.
+
+If the live check succeeds and is merged, set `"discovery_source": "live+policy-doc"`.
+
+**Checkpoint** (MANDATORY): `apex-recall checkpoint <project> 3_5 phase_0_live_discovery --json`
 
 ## Step 1 — Read the Policy Document
 
@@ -115,19 +161,25 @@ Follow the structure from
 `.github/skills/azure-artifacts/templates/04-governance-constraints.template.md` exactly.
 Populate every section from the parsed policy document.
 
-Use these values for the Discovery Source section:
+Use these values for the Discovery Source section (depending on whether the live check succeeded):
 
-| Field | Value |
-| ----- | ----- |
-| Source | `Company policy document (company-policies.md)` |
-| Timestamp | Current date/time (ISO-8601) |
-| Subscription | `N/A — policy document mode, no Azure query performed` |
-| Scope | `N/A — policy document mode` |
+| Field | Value (live+policy-doc) | Value (fallback) |
+| ----- | ----------------------- | ---------------- |
+| Source | `Live subscription + company policy document (company-policies.md)` | `Company policy document (company-policies.md)` |
+| Timestamp | Current date/time (ISO-8601) | Current date/time (ISO-8601) |
+| Subscription | `<live subscription ID>` | `N/A — live check failed, policy document mode` |
+| Scope | `subscription + inherited management-group policies` | `N/A — policy document mode` |
 
-Add this callout at the top of the Discovery Source section:
+Add the appropriate callout at the top of the Discovery Source section:
 
-> ⚠️ **Policy document mode** — Constraints sourced from `company-policies.md`, not live Azure
-> discovery. Re-run with Azure access enabled to verify against actual subscription policy assignments.
+> ✅ **Live + policy-document mode** — Constraints merged from live Azure Policy assignments
+> and `company-policies.md`. The company policy document is the floor; live discovery adds to it.
+
+…or, if the live check failed:
+
+> ⚠️ **Policy document mode (live check failed)** — Live Azure discovery failed ({reason});
+> constraints sourced from `company-policies.md` only. Re-run with Azure access enabled to
+> verify against actual subscription policy assignments.
 
 For any template section where the policy document defines no constraints, write:
 `✅ No constraints defined in company policy.`
@@ -142,9 +194,10 @@ Produce a single flat object (not nested under `subscriptions`) using this struc
 ```jsonc
 {
   "schema_version": "governance-constraints-v1",
-  "subscription_id": "N/A — policy document mode",
+  "subscription_id": "<live subscription ID if discovered, else 'N/A — policy document mode'>",
   "discovered_at": "<ISO-8601 timestamp>",
   "source": "company-policies.md",
+  "discovery_source": "<live+policy-doc | policy-doc-only (live check failed)>",
   "discovery_status": "COMPLETE",
   "discovery_summary": {
     "assignment_total": <total policy count>,
@@ -224,7 +277,10 @@ Produce a single flat object (not nested under `subscriptions`) using this struc
 
 After saving, produce a short summary in chat:
 
+- Discovery source: `live+policy-doc` or `policy-doc-only (live check failed)` — state which,
+  and the failure reason if it fell back
 - ✅/❌ Policy document found and parsed
+- Count of policies discovered live vs. from the document (and how many merged)
 - Count of Deny policies (blockers)
 - Count of required tags
 - Allowed regions list
@@ -242,33 +298,39 @@ Then present the **Step 4: IaC Plan** handoff.
 
 **Do:**
 
-- ✅ Read `.github/skills/governance/company-policies.md` as the sole policy source
+- ✅ Run the live subscription policy check FIRST (Step 0), then read the company policy document
+- ✅ Merge live + document sources — `company-policies.md` is the floor; keep the stricter policy
+- ✅ Read `.github/skills/governance/company-policies.md` as the policy floor
 - ✅ Stop immediately with a clear error if the policy document is missing
 - ✅ Set `discovery_status: "COMPLETE"` in the JSON output
+- ✅ Set `discovery_source` to `"live+policy-doc"` or `"policy-doc-only (live check failed)"`
+- ✅ Fall back gracefully to policy-doc-only if the live check fails — never hard-stop on live errors
 - ✅ Validate all override fields — treat incomplete or expired overrides as blockers
 - ✅ Flag untranslatable policies (missing property paths) in the summary
 - ✅ Save both output files to `agent-output/{project}/`
 
 **Don't:**
 
-- ❌ Call `azure_query_azure_resource_graph`, `azure_get_auth_context`, or `azure_set_auth_context`
-- ❌ Run any Python scripts or terminal commands
-- ❌ Query any Azure subscription
-- ❌ Ask the user for policy information — it all comes from the document
+- ❌ Hard-stop because the live Azure check failed — fall back to policy-doc-only instead
+- ❌ Let live discovery REMOVE or downgrade a company-policy constraint (the document is the floor)
+- ❌ Ask the user for policy information — it comes from live discovery and the document
 - ❌ Proceed silently if the policy document is missing
 - ❌ Set `discovery_status` to anything other than `"COMPLETE"`
 - ❌ Emit a Deny policy entry without flagging missing `azurePropertyPath`/`bicepPropertyPath`
 
 ## Boundaries
 
-- **Always**: Read policy document, produce both outputs, validate overrides, report untranslatable policies
+- **Always**: Run live discovery (Step 0) then read the policy doc, merge with the document as the floor, produce both outputs, validate overrides, report untranslatable policies
 - **Ask first**: Policy document contains ambiguous or conflicting entries
-- **Never**: Query Azure, authenticate, run scripts, skip the missing-file check, silently accept incomplete overrides
+- **Never**: Hard-stop on live-check failure (fall back instead), let live discovery remove a company-policy constraint, skip the missing-file check, silently accept incomplete overrides
 
 ## Validation Checklist
 
 Before handing off:
 
+- [ ] Live subscription check attempted (Step 0) — merged if successful, fell back gracefully if not
+- [ ] `discovery_source` is `"live+policy-doc"` or `"policy-doc-only (live check failed)"`
+- [ ] Merge applied company-policies.md as the floor (live discovery never removed a doc constraint)
 - [ ] Policy document found at `.github/skills/governance/company-policies.md`
 - [ ] All 8 sections parsed (sections absent from document noted as "no constraints defined")
 - [ ] `04-governance-constraints.md` saved to `agent-output/{project}/`

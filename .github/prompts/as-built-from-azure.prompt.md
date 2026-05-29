@@ -19,7 +19,7 @@ argument-hint: "Provide subscription name/ID, resource group(s), and workload na
 
 # As-Built Documentation from Existing Azure Deployment
 
-Generate comprehensive as-built documentation (all 7 Step-7 documents + Draw.io diagram)
+Generate comprehensive as-built documentation (all 6 Step-7 documents + Mermaid diagram)
 for an existing Azure workload where **no prior artifacts exist** (no IaC, no requirements docs,
 no architecture assessments). The agent discovers everything from the live Azure environment
 and user-provided context.
@@ -36,7 +36,8 @@ and user-provided context.
 - User has Azure CLI authenticated (`az account show` succeeds)
 - User has Reader access (minimum) to the target subscription and resource group(s)
 - No prior `agent-output/{project}/` artifacts exist — this prompt creates them from scratch
-- All 7 as-built documents + Draw.io diagram will be generated
+- The as-built documentation suite will be generated
+- Do NOT generate cost estimate files or dollar figures. Do NOT perform WAF pillar scoring.
 
 ---
 
@@ -305,15 +306,15 @@ Synthesize from user answers (Phases 1-2). Include:
 
 ### 5.3 Architecture Assessment (02-architecture-assessment.md)
 
-Synthesize from discovered resource configuration. For each WAF pillar, assess:
+Synthesize from discovered resource configuration using the focused assessment format:
 
-- **Security**: TLS settings, private endpoints, managed identity usage, NSG rules, Key Vault
-- **Reliability**: Zone redundancy, backup configuration, replication, SLA alignment
-- **Performance**: SKU tiers, scaling configuration, caching, CDN
-- **Cost Optimization**: SKU appropriateness vs stated budget, reserved instances, right-sizing
-- **Operational Excellence**: Diagnostics, monitoring, tagging compliance, IaC coverage
+- **Resources**: table of discovered resources with SKU/tier and a short justification
+- **Key Decisions**: networking, identity, and redundancy decisions observed in the deployment
+- **AVM Modules**: the AVM module + version matching each discovered resource (where applicable)
+- **Risks / Blockers**: any misconfigurations or hard risks observed
 
-Use resource discovery data from Phase 4. Score each pillar 1-5 based on observed configuration.
+Use resource discovery data from Phase 4. Do NOT perform WAF pillar scoring and do NOT
+include dollar figures.
 
 ### 5.4 Governance Constraints (04-governance-constraints.md)
 
@@ -357,19 +358,17 @@ After all pseudo-artifacts are saved, delegate to the `08-As-Built` agent:
 > resource discovery and saved to `agent-output/{project}/`. No IaC templates
 > exist — use Azure CLI queries for resource details. The workload runs in
 > subscription `{subscription}`, resource group(s) `{resource-groups}`.
-> Read all prior artifacts and generate all 7 documentation files plus
-> the Draw.io as-built diagram.
+> Read all prior artifacts and generate all 6 documentation files plus
+> the Mermaid as-built diagram.
 
 The `08-As-Built` agent will produce:
 
 - `07-resource-inventory.md`
 - `07-design-document.md`
-- `07-ab-cost-estimate.md`
 - `07-compliance-matrix.md`
 - `07-backup-dr-plan.md`
 - `07-operations-runbook.md`
 - `07-documentation-index.md`
-- `07-ab-diagram.drawio`
 
 ---
 
@@ -381,13 +380,13 @@ All files saved to `agent-output/{project}/`:
 | ------------------------------- | ----------- | ------------------------------------------ |
 | `00-session-state.json`         | This prompt | Workflow state with Steps 1-6 synthesized  |
 | `01-requirements.md`            | This prompt | Requirements from user answers             |
-| `02-architecture-assessment.md` | This prompt | WAF assessment from discovered state       |
+| `02-architecture-assessment.md` | This prompt | Focused assessment from discovered state   |
 | `04-governance-constraints.md`  | This prompt | Azure Policy constraints                   |
 | `04-implementation-plan.md`     | This prompt | Reverse-engineered from resource inventory |
 | `06-deployment-summary.md`      | This prompt | Live resource state snapshot               |
 | `README.md`                     | This prompt | Project dashboard                          |
 | `07-*.md` (7 files)             | 08-As-Built | Full documentation suite                   |
-| `07-ab-diagram.drawio`          | 08-As-Built | Architecture diagram                       |
+| `07-architecture-diagram.md`    | 08-As-Built | Mermaid architecture diagram               |
 
 ## Quality Assurance
 

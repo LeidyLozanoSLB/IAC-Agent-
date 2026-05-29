@@ -10,7 +10,7 @@
       "requires": [],
       "produces": ["01-requirements.md"],
       "gate": "approval",
-      "challenger": { "passes": 1, "lenses": ["comprehensive"] }
+      "challenger": { "enabled": false, "passes": 1, "lenses": ["comprehensive"] }
     },
     "gate-1": {
       "id": "gate-1",
@@ -28,6 +28,7 @@
       "produces": ["02-architecture-assessment.md"],
       "gate": "approval",
       "challenger": {
+        "enabled": false,
         "default_passes": 1,
         "default_lenses": ["comprehensive"],
         "opt_in_multi_pass": true,
@@ -90,6 +91,7 @@
       ],
       "gate": "approval",
       "challenger": {
+        "enabled": false,
         "default_passes": 0,
         "opt_in": true,
         "complexity_matrix": {
@@ -121,6 +123,7 @@
       "produces": ["infra/bicep/{project}/"],
       "gate": "validation",
       "challenger": {
+        "enabled": false,
         "default_passes": 0,
         "opt_in": true,
         "complexity_matrix": {
@@ -192,6 +195,8 @@
     "iac_tracks": ["Bicep"],
     "total_gates": 5,
     "total_steps": 7,
+    "challenger_enabled": false,
+    "challenger_disabled_reason": "Disabled for performance — challenger adds meaningful time to every run and is overkill for brownfield deployments of known patterns into existing infrastructure. Re-enable per-node via challenger.enabled and this flag for complex greenfield deployments.",
     "complexity_routing": {
       "description": "Deterministic formula for selecting challenger-review pass counts. Orchestrator computes `score` at gate-1, stores result in session state `decisions.complexity`, and agents read from session state instead of re-deriving.",
       "formula": "score = (resource_count / 3) + (policy_violations / 2)",

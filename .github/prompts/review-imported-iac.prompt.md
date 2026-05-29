@@ -2,7 +2,7 @@
 name: review-imported-iac
 agent: agent
 model: GPT-5.4
-description: "Ingest pasted or existing Bicep or Terraform, normalize it into the repo, run static review plus AVM and governance checks, and generate WAF review artifacts."
+description: "Ingest pasted or existing Bicep or Terraform, normalize it into the repo, run static review plus AVM and governance checks, and generate architecture review artifacts."
 argument-hint: "Paste or select IaC, or provide a workspace path plus a project name"
 ---
 
@@ -18,7 +18,7 @@ or already present in the workspace, and run the full imported-IaC review flow:
 3. audit AVM usage and pinned versions
 4. detect non-AVM resources where AVM exists
 5. perform governance review when Azure scope is available
-6. generate a WAF review with cost context when workload inputs are available
+6. generate a focused architecture review when workload inputs are available
 
 Use the repository's existing agents, validators, and conventions wherever possible.
 Do not replace existing workflow steps with ad hoc inline behavior when a repo-native
@@ -61,7 +61,7 @@ Do not spread them across multiple back-and-forth turns.
   `infra/terraform/{project}/`
 
 If the user provides only code and no workload context, complete the static IaC review first,
-then collect the missing architecture inputs before finalizing the WAF assessment.
+then collect the missing architecture inputs before finalizing the architecture assessment.
 
 ## Workflow
 
@@ -205,24 +205,24 @@ If the user supplied subscription or resource-group context, perform policy-awar
 If Azure context is unavailable, do not silently skip governance review.
 Mark it as pending due to missing scope.
 
-### 9. Generate WAF Review
+### 9. Generate Architecture Review
 
-Once `01-requirements.md` contains workload purpose, NFRs, compliance, budget, and scale,
-perform the architecture review.
+Once `01-requirements.md` contains workload purpose, compliance, and scale,
+perform the focused architecture review.
 
 Preferred path:
 
-1. Invoke `03-Architect` to generate:
-   - `agent-output/{project}/02-architecture-assessment.md`
-   - `agent-output/{project}/03-des-cost-estimate.md`
+1. Invoke `03-Architect` to generate `agent-output/{project}/02-architecture-assessment.md`
+   in the focused format: Resources table, Key Decisions, AVM Modules, Risks/Blockers.
 
 Fallback path:
 
 1. If one or more requirement categories are missing, ask for them in one batch.
-2. If the user still declines to provide them, produce a code-derived WAF review with
+2. If the user still declines to provide them, produce a code-derived assessment with
    low confidence and explicitly list the missing evidence.
 
-Do not claim a high-confidence WAF assessment when the only input is code.
+Do not claim a high-confidence assessment when the only input is code.
+Do NOT generate cost estimate files or dollar figures. Do NOT perform WAF pillar scoring.
 
 ### 10. Close The Intake Run
 
@@ -232,12 +232,12 @@ Present findings in priority order:
 2. standards and AVM gaps
 3. warnings and manual-verification items
 4. governance gaps
-5. WAF risks and trade-offs
+5. architecture risks and trade-offs
 
 State whether the imported IaC is:
 
 - ready for remediation only
-- ready for governance and WAF review
+- ready for governance and architecture review
 - or ready to enter the standard plan, code, and deploy flow
 
 Offer next actions only after the artifacts are written.
@@ -259,13 +259,12 @@ Conditional artifacts:
 - `agent-output/{project}/04-governance-constraints.md`
 - `agent-output/{project}/04-governance-constraints.json`
 - `agent-output/{project}/02-architecture-assessment.md`
-- `agent-output/{project}/03-des-cost-estimate.md`
 
 ## Quality Assurance
 
 - Use the repository's existing agents, validators, and scripts before inventing new checks.
-- Prefer subagents for formal validation and WAF assessment where the repo already defines them.
-- Never silently skip AVM, governance, deprecation, or WAF checks.
+- Prefer subagents for formal validation and architecture assessment where the repo already defines them.
+- Never silently skip AVM, governance, deprecation, or architecture checks.
 - Keep imported code changes minimal and isolated to the selected project.
 - Require approval before replacing or deleting existing project folders.
 - Report uncertainty explicitly instead of making unsupported platform claims.

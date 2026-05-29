@@ -12,7 +12,7 @@ agents:
     "06b-Bicep CodeGen",
     "07b-Bicep Deploy",
     "08-As-Built",
-    "challenger-review-subagent",
+    # "challenger-review-subagent",   # Challenger disabled for performance — re-enable for complex greenfield deployments if needed.
   ]
 tools:
   [
@@ -46,7 +46,7 @@ handoffs:
     send: true
   - label: "Step 2: Architecture (Streamlined)"
     agent: 03-Architect
-    prompt: "Create a streamlined WAF assessment with cost estimates for a simple project. Input: `agent-output/{project}/01-requirements.md`. Output: `02-architecture-assessment.md` and `03-des-cost-estimate.md`. 1-pass review (standard default)."
+    prompt: "Create a focused architecture assessment for a simple project. Input: `agent-output/{project}/01-requirements.md`. Output: `02-architecture-assessment.md` (resource/SKU recommendations, key decisions, AVM modules, blockers). No WAF scoring, no cost estimate, no challenger review."
     send: true
   - label: "Step 3: IaC Plan + Code"
     agent: 05-IaC Planner
@@ -113,18 +113,16 @@ If missing or not `simple`, STOP with error before proceeding.
 
 ### Step 2: Architecture (streamlined)
 
-Delegate to `03-Architect` agent. For simple projects per the review
-matrix in `azure-defaults/references/adversarial-review-protocol.md`:
+Delegate to `03-Architect` agent. For simple projects:
 
-- 1-pass comprehensive review (standard default)
-- Skip detailed cost comparison (single-tier is sufficient)
-- WAF assessment is still mandatory
+- Focused assessment only — resources/SKUs, key decisions, AVM modules, blockers
+- No WAF scoring and no cost comparison (removed for performance)
+- No challenger/adversarial review (disabled for performance)
 
 ### Step 3: Plan + Code (combined)
 
 This is the key optimization — Plan and Code are combined.
-Review pass counts follow the `simple` row of the review matrix in
-`azure-defaults/references/adversarial-review-protocol.md`.
+Challenger/adversarial review is disabled for performance (no review passes at this step).
 
 1. **Present the IaC Planner handoff** (`05-IaC Planner`) — the Planner
    routes internally based on `decisions.iac_tool` in session state and
@@ -154,15 +152,14 @@ Review pass counts follow the `simple` row of the review matrix in
      projects only because: single deployment phase, ≤3 resources, 1-pass
      review at Code stage catches plan errors. If plan quality degrades,
      re-introduce the gate.
-   - 1-pass comprehensive adversarial review (standard default)
-   - Standard validation (lint + review subagents)
+   - No challenger/adversarial review (disabled for performance)
+   - Standard validation (lint + code-review via bicep-validate-subagent — not challenger)
 
 ### Step 4: Deploy (same as standard)
 
 Delegate to `07b-Bicep Deploy` agent. What-if/plan is still mandatory.
 User approval is still required.
-Per the review matrix, deploy adversarial review is **skipped** for
-simple projects with no open findings.
+Deploy adversarial review is **skipped** (challenger disabled for performance).
 
 ### Step 5: Documentation (streamlined)
 
@@ -186,7 +183,7 @@ After each subagent or handoff returns, verify the step was recorded:
 - **Always**: Check complexity classification, require user approval at deploy
 - **Ask first**: Nothing — fast path is autonomous between gates
 - **Never**: Process standard/complex projects, skip deploy approval,
-  skip WAF assessment
+  skip the architecture assessment
 
 ## Promotion Path
 

@@ -1,7 +1,7 @@
 ---
 name: 01-Orchestrator
 description: Master orchestrator for the multi-step Azure platform engineering workflow. Coordinates specialized agents (Requirements, Architect, Design, IaC Plan, IaC Code, Deploy) through the complete development cycle with mandatory human approval gates. Routes to Bicep agents for IaC generation and deployment. Maintains context efficiency by delegating to subagents and preserves human-in-the-loop control at critical decision points.
-model: ["Claude Opus 4.6"]
+model: ["Claude Sonnet 4.6"]
 argument-hint: Describe the Azure platform engineering project you want to build end-to-end
 user-invocable: true
 agents:
@@ -51,7 +51,7 @@ handoffs:
     send: true
   - label: "Step 2: Architecture Assessment"
     agent: 03-Architect
-    prompt: "Create a WAF assessment based on the requirements in `agent-output/{project}/01-requirements.md`. The requirements document contains the project scope, NFRs, compliance needs, and budget. Your output is `02-architecture-assessment.md` (WAF scores + SKU recommendations) and `03-des-cost-estimate.md` (pricing from Azure documentation). Save both to `agent-output/{project}/`."
+    prompt: "Create a focused architecture assessment based on the requirements in `agent-output/{project}/01-requirements.md`. Output `02-architecture-assessment.md` with resource/SKU recommendations, key decisions, AVM modules, and blockers. No WAF scoring, no cost estimate. Save to `agent-output/{project}/`."
     send: true
   - label: "Step 3: Design Artifacts"
     agent: 04-Design
@@ -59,7 +59,7 @@ handoffs:
     send: false
   - label: "Step 3.5: Governance Discovery"
     agent: 04g-Governance
-    prompt: "Discover Azure Policy constraints for `agent-output/{project}/`. Query REST API (including management-group inherited policies), produce 04-governance-constraints.md/.json, and run adversarial review. Input: `02-architecture-assessment.md` resource list. Output: governance constraint artifacts for IaC planning. **INVOCATION: switch agent mode (handoff) — do NOT wrap this in `#runSubagent`.** Subagent dispatch re-boots discovery context cold (+15 min overhead from duplicated skill/instruction loading, cache miss on `tmp/{project}-governance-live.json`, and nested challenger re-entry). The governance agent is designed to run as a peer with shared session state."
+    prompt: "Discover Azure Policy constraints for `agent-output/{project}/`. Query the live subscription (including management-group inherited policies) and merge with the company policy document (the floor); produce 04-governance-constraints.md/.json. Input: `02-architecture-assessment.md` resource list. Output: governance constraint artifacts for IaC planning. Challenger/adversarial review is disabled for performance. **INVOCATION: switch agent mode (handoff) — do NOT wrap this in `#runSubagent`.** Subagent dispatch re-boots discovery context cold (+15 min overhead from duplicated skill/instruction loading and cache miss). The governance agent is designed to run as a peer with shared session state."
     send: true
   - label: "Step 4: Implementation Plan"
     agent: 05-IaC Planner
@@ -75,7 +75,7 @@ handoffs:
     send: false
   - label: "Step 7: As-Built Documentation"
     agent: 08-As-Built
-    prompt: "Generate the complete Step 7 documentation suite for the deployed project. Input: all prior artifacts (01-06) in `agent-output/{project}/` plus deployed resource state. Output: `07-*.md` documentation suite (design doc, runbook, cost estimate, compliance matrix, resource inventory)."
+    prompt: "Generate the complete Step 7 documentation suite for the deployed project. Input: all prior artifacts (01-06) in `agent-output/{project}/` plus deployed resource state. Output: `07-*.md` documentation suite (design doc, runbook, compliance matrix, backup/DR plan, resource inventory, documentation index)."
     send: true
   - label: "⚡ Switch to Fast Path"
     agent: 01-Orchestrator (Fast Path)
@@ -118,8 +118,8 @@ current_step, step status, decisions, and artifact inventory.
 Do not read or write `00-session-state.json` directly.
 Handoff: agent-output/{project}/00-handoff.md — overwrite at every gate (under 60 lines,
 paths only, never embed artifact content).
-Gate format: structured text block with artifact paths, challenger findings summary,
-and next-step guidance (see gate templates below).
+Gate format: structured text block with artifact paths and next-step guidance
+(see gate templates below). Challenger findings summary is omitted — challenger disabled for performance.
 
 **HARD RULE — ONE-SHOT PROJECT SETUP**
 
@@ -177,7 +177,17 @@ Instead of hardcoded step logic, read `workflow-graph.json` from the workflow-en
 6. **Session Breaks**: Recommend a fresh chat session at Gates 2 and 3 to prevent context
    exhaustion (see [Session Break Protocol](#session-break-protocol))
 
-## Review Protocol: Single-Pass Default
+## Review Protocol: CHALLENGER DISABLED
+
+> **Challenger disabled for performance — re-enable for complex greenfield deployments if needed.**
+> Adversarial/challenger review adds meaningful time to every run and is overkill for brownfield
+> deployments of known patterns into existing infrastructure. No challenger pass runs at any gate
+> by default. The complexity-routing and gate-behaviour guidance below is **retained but inactive**
+> for easy re-enablement (set `metadata.challenger_enabled` and per-node `challenger.enabled` in
+> `workflow-graph.json` back to `true`, and remove this banner).
+
+<!-- The original review protocol is preserved below for re-enablement but is INACTIVE while
+     challenger is disabled. Do not run challenger passes at gates. -->
 
 All steps default to **1-pass comprehensive adversarial review**. Multi-pass rotating
 lens reviews are **opt-in**, recommended only for complex projects.
@@ -214,18 +224,20 @@ score after governance approval.
 
 ### Gate behaviour
 
-At each approval gate:
+> **CHALLENGER DISABLED**: Do NOT run any challenger pass at gates. Present the artifact and
+> proceed to the approval `askQuestions` directly. Steps 1, 4, and 5 below are retained but
+> inactive for re-enablement.
 
-1. Run a single comprehensive challenger pass
-2. Check `decisions.complexity` from `apex-recall show <project> --json`
-3. **simple/standard**: Present the single-pass result directly — no additional review
-4. **complex**: Ask the user via `askQuestions`:
-   _"Run additional adversarial review? (recommended for complex projects)"_
-   Options: "Yes — run full multi-pass review" / "No — proceed with single-pass result"
-5. If user opts in, run the full complexity matrix from `adversarial-review-protocol.md`
+At each approval gate (challenger steps inactive):
 
-Steps 4 and 5 (Plan and Code) skip challenger review entirely by default (`default_passes: 0`
-in `workflow-graph.json`). For complex projects, the Orchestrator asks whether to enable it.
+1. ~~Run a single comprehensive challenger pass~~ — skipped (challenger disabled)
+2. Check `decisions.complexity` from `apex-recall show <project> --json` (still used for routing)
+3. Present the artifact summary directly — no adversarial review
+4. ~~**complex**: Ask the user whether to run additional adversarial review~~ — skipped
+5. ~~If user opts in, run the full complexity matrix~~ — skipped
+
+Steps 4 and 5 (Plan and Code) already skip challenger review entirely. With challenger globally
+disabled, no step runs adversarial review.
 
 ## DO / DON'T
 
@@ -290,7 +302,7 @@ lessons narrative as a completion artifact.
 - Write `00-handoff.md` at every gate before presenting it to the user
 - Interactive steps (1, 4) use handoffs — NEVER `#runSubagent`
 - Autonomous steps (2, 3, 5, 6, 7) use `#runSubagent`
-- Gate 1 must include Challenger findings
+- ~~Gate 1 must include Challenger findings~~ — challenger disabled for performance; no findings section at any gate
 - Gates 2 and 3 recommend session breaks
 
 ## Starting a New Project
@@ -352,12 +364,11 @@ Orchestrator with the project name — no special resume prompt needed.
 
 ## Model Selection
 
-| Tier     | Model             | Used For                                       |
-| -------- | ----------------- | ---------------------------------------------- |
-| `orch`   | GPT-5.4           | Orchestrator orchestration, routing, gates     |
-| `high`   | Claude Opus 4.6   | Requirements, Architecture, Planning, Code Gen |
-| `medium` | Claude Sonnet 4.6 | Deploy, As-Built, Reviews, Governance          |
-| `low`    | Claude Haiku 4.5  | Lint, Cost Estimate, What-If, Plan Preview     |
+| Tier       | Model             | Used For                                                                              |
+| ---------- | ----------------- | ------------------------------------------------------------------------------------- |
+| `frontier` | Claude Opus 4.6   | Context optimization only (11-Context-Optimizer)                                      |
+| `balanced` | Claude Sonnet 4.6 | Orchestrator, Requirements, Architecture, Design, Governance, IaC Planning, Code Gen  |
+| `standard` | GPT-5.4           | Deploy, As-Built, validation subagents, what-if interpretation                        |
 
 ## Boundaries
 

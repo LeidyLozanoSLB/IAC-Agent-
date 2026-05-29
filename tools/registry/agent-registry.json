@@ -41,7 +41,6 @@
       "skills": [
         "azure-defaults",
         "azure-artifacts",
-        "python-diagrams",
         "context-shredding"
       ],
       "capability_skills": [
@@ -58,9 +57,7 @@
         "azure-adr",
         "azure-artifacts"
       ],
-      "capability_skills": [
-        "python-diagrams"
-      ],
+      "capability_skills": [],
       "invokable": true,
       "step": 3
     },
@@ -84,8 +81,7 @@
       "skills": [
         "azure-defaults",
         "azure-artifacts",
-        "azure-bicep-patterns",
-        "python-diagrams"
+        "azure-bicep-patterns"
       ],
       "capability_skills": [
         "microsoft-docs",
@@ -133,7 +129,6 @@
       "skills": [
         "azure-defaults",
         "azure-artifacts",
-        "python-diagrams",
         "context-shredding"
       ],
       "capability_skills": [

@@ -30,8 +30,8 @@ Capture requirements for an Azure resource provisioning request.
 4. Read `.github/skills/azure-artifacts/references/01-requirements-template.md` for doc structure.
 5. Read `.github/skills/azure-defaults/SKILL.digest.md` for defaults (region, tags, security).
 6. Generate `agent-output/{project}/01-requirements.md` — concise, fact-based.
-7. Invoke the `challenger-review-subagent` for adversarial review (1 pass).
-8. Apply `must_fix` findings and re-validate.
+7. <!-- CH3: challenger disabled — do NOT invoke challenger-review-subagent -->
+8. <!-- CH3: challenger disabled — no must_fix findings to apply -->
 9. Update session state: mark Step 1 `complete`.
 
 ## Constraints
@@ -41,3 +41,4 @@ Capture requirements for an Azure resource provisioning request.
 - Do NOT ask about HIPAA, compliance, industry, company size, or workload patterns.
 - Do NOT hardcode SKUs — leave sizing to Step 2 (Architecture).
 - IaC tool is always Bicep — do not ask.
+- Do NOT invoke challenger-review-subagent — disabled for performance.

@@ -37,7 +37,7 @@ handoffs:
     send: false
   - label: "Step 2: Architecture Assessment"
     agent: 03-Architect
-    prompt: "Review the requirements in `agent-output/{project}/01-requirements.md` and create a WAF assessment. Input: resource type, environment, region, connectivity, and additional requirements. Output: `02-architecture-assessment.md` (WAF scores + SKU recommendations) and `03-des-cost-estimate.md` (pricing from Azure documentation)."
+    prompt: "Review the requirements in `agent-output/{project}/01-requirements.md` and create a focused architecture assessment. Input: resource type, environment, region, connectivity, and additional requirements. Output: `02-architecture-assessment.md` (focused assessment: resources, key decisions, AVM modules, risks)."
     send: true
   - label: "Open in Editor"
     agent: agent
@@ -56,7 +56,7 @@ handoffs:
 Primary artifact: agent-output/{project}/01-requirements.md — concise requirements summary.
 Secondary artifact: agent-output/{project}/README.md — project status dashboard.
 Session state: managed via `apex-recall` CLI.
-Challenger output: challenge-findings-requirements.json (structured JSON).
+Challenger output: disabled (CH3 — challenger removed for performance).
 </output_contract>
 
 <scope_fencing>
@@ -82,7 +82,7 @@ questioning.
 Run `apex-recall show <project> --json` for full project context. Do not read `00-session-state.json` directly.
 
 - **My step**: 1
-- **Sub-step checkpoints**: `phase_1_questions` → `phase_2_document` → `phase_3_challenger`
+- **Sub-step checkpoints**: `phase_1_questions` → `phase_2_document`   <!-- phase_3_challenger: disabled — CH3 -->
 - **Checkpoints**: `apex-recall checkpoint <project> 1 <phase_name> --json`
 - **Decisions**: `apex-recall decide <project> --key <k> --value <v> --json`
 - **On completion**: `apex-recall complete-step <project> 1 --json`
@@ -236,18 +236,13 @@ the nearest matching H2. Omit template sections that have no content.
    `apex-recall decide <project> --key iac_tool --value Bicep --json`
    `apex-recall decide <project> --key region --value <region> --json`
    **Checkpoint**: `apex-recall checkpoint <project> 1 phase_2_document --json`
-6. Proceed to **Challenger Review** — do NOT present handoff yet
+6. Present the **Step 2: Architecture Assessment** handoff
 
 ## Challenger Review (Do NOT Skip)
 
-This phase is required before presenting Gate 1. Do NOT skip it, even for simple projects.
+<!-- CHALLENGER DISABLED — re-enable via workflow-graph.json metadata.challenger_enabled when needed -->
 
-Adversarial review is handled by the standalone `10-Challenger` agent or by parent
-orchestrators that include `challenger-review-subagent` in their `agents:` array.
-This agent (`02-Requirements`) does not invoke the subagent directly.
-
-After saving `01-requirements.md`, present the **Step 2: Architecture Assessment** handoff
-and allow the Orchestrator to route through the challenger if configured.
+After saving `01-requirements.md`, present the **Step 2: Architecture Assessment** handoff.
 
 **On completion** (MANDATORY): `apex-recall complete-step <project> 1 --json`
 
@@ -262,7 +257,6 @@ and allow the Orchestrator to route through the challenger if configured.
 - ✅ **Skip questions the Orchestrator context already answered** — do not re-ask known facts
 - ✅ Ask only the defined questions (Q0, optionally Q0a/Q0b if brownfield, then Q1–Q5),
   skip Q5 when SKU is irrelevant
-- ✅ Render challenger findings as a markdown table in chat
 - ✅ Auto-save to `agent-output/{project}/01-requirements.md` before handoff
 - ✅ Set `iac_tool: Bicep` in the output — never ask the user about IaC tool choice
 - ✅ Defer naming convention: write "to be applied — standard pending definition"
@@ -308,7 +302,7 @@ If `askQuestions` is unavailable, gather via chat questions instead.
 
 ## Boundaries
 
-- **Always**: Ask only the defined questions, save to `01-requirements.md`, run challenger review
+- **Always**: Ask only the defined questions, save to `01-requirements.md`
 - **Ask first**: Scope expansions, multi-resource requests
 - **Never**: Make architecture decisions, generate IaC code, re-ask the resource type, ask about naming
 

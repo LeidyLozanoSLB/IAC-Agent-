@@ -100,9 +100,8 @@ Each subdirectory under `.github/skills/` with a `SKILL.md` is one skill.
 | `azure-defaults`              | `azure-defaults/`              | Azure Conventions   | "azure defaults", "naming"                |
 | `azure-deploy`                | `azure-deploy/`                | Deployment          | "azd up", "deploy", "go live"             |
 | `azure-diagnostics`           | `azure-diagnostics/`           | Troubleshooting     | "troubleshoot", "KQL", "health check"     |
-| `python-diagrams`             | `python-diagrams/`             | Document Creation   | "create chart", "WAF chart"               |
 | `mermaid`                     | `mermaid/`                     | Document Creation   | "mermaid diagram", "flowchart"            |
-| `azure-diagrams`              | `azure-diagrams/`              | Routing             | Routes to drawio/python-diagrams/mermaid  |
+| `azure-diagrams`              | `azure-diagrams/`              | Routing             | Routes to drawio/mermaid                  |
 | `azure-hosted-copilot-sdk`    | `azure-hosted-copilot-sdk/`    | SDK                 | "copilot SDK", "copilot app"              |
 | `azure-kusto`                 | `azure-kusto/`                 | Data & Analytics    | "KQL queries", "Azure Data Explorer"      |
 | `azure-messaging`             | `azure-messaging/`             | Messaging           | "event hub", "service bus"                |
@@ -262,7 +261,6 @@ These skills are explicitly referenced in agent body text via mandatory
 | `azure-defaults`    | all primary agents                                         |
 | `azure-artifacts`   | requirements, architect, iac-planner, deploy, orchestrator |
 | `drawio`            | design, architect, as-built agents                         |
-| `python-diagrams`   | architect, as-built agents                                 |
 | `azure-adr`         | design agent                                               |
 | `github-operations` | orchestrator, iac-planner agents                           |
 

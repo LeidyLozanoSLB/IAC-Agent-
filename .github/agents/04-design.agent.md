@@ -144,7 +144,7 @@ Run `apex-recall show <project> --json` for full project context. Do not read
 1. Read `01-requirements.md` — extract: project name, environment, region, deployment mode
    (brownfield/greenfield), connectivity requirements, existing infrastructure (if brownfield),
    SKU/tier
-2. Read `02-architecture-assessment.md` — extract: WAF resource list, architecture decisions,
+2. Read `02-architecture-assessment.md` — extract: resource list, architecture decisions,
    recommended SKUs
 3. If `04-governance-constraints.md` exists, read it for: required tags, network policies
 4. If `04-implementation-plan.md` exists, read it for: final resource names and dependency order
@@ -233,7 +233,7 @@ worth recording.
 
 1. Identify key architectural decisions from `02-architecture-assessment.md`
 2. Follow the `azure-adr` skill format for each decision
-3. Include WAF trade-offs as decision rationale
+3. Include key architectural decisions from `02-architecture-assessment.md` as decision rationale
 4. Number ADRs sequentially: `03-des-adr-0001-{slug}.md`
 5. Save to `agent-output/{project}/`
 

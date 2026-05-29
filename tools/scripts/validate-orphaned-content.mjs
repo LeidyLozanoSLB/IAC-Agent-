@@ -43,7 +43,6 @@ const KNOWN_UNLINKED_SKILLS = new Set([
   "entra-app-registration",
   "mermaid",
   "microsoft-foundry",
-  "python-diagrams",
 ]);
 
 const r = new Reporter("Orphaned Content Validator");

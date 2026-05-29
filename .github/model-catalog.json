@@ -9,10 +9,9 @@
       "released": "2026-01",
       "deprecated": false,
       "use_for": [
-        "orchestration",
         "context-optimization"
       ],
-      "notes": "Highest-reasoning tier. Reserved for Orchestrator only."
+      "notes": "Highest-reasoning tier. Reserved for context-optimization only. Downgraded the Orchestrator from Opus — WAF, cost estimation, and challenger removed; routing + gate bookkeeping is within Sonnet capability."
     },
     "Claude Sonnet 4.6": {
       "vendor": "Anthropic",
@@ -20,6 +19,7 @@
       "released": "2026-01",
       "deprecated": false,
       "use_for": [
+        "orchestration",
         "requirements",
         "architecture",
         "iac-planning",
@@ -28,7 +28,7 @@
         "governance",
         "challenger-review"
       ],
-      "notes": "Strong code generation at lower cost than Opus. Primary model for most agents."
+      "notes": "Strong code generation at lower cost than Opus. Primary model for most agents, including the Orchestrator (downgraded from Opus — WAF, cost estimation, and challenger removed; routing + gate bookkeeping is within Sonnet capability)."
     },
     "GPT-5.4": {
       "vendor": "OpenAI",

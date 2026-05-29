@@ -15,7 +15,7 @@ tools:
     search,
     web,
     azure-mcp/search,
-    "microsoft-learn/*",
+    # "microsoft-learn/*",   # Removed — As-Built reads deployed state via azure-mcp, not documentation
     todo,
   ]
 handoffs:
@@ -50,9 +50,8 @@ Before doing any work, read these skills:
 
 1. Read `.github/skills/azure-defaults/SKILL.digest.md` — regions, tags, naming
 2. Read `.github/skills/azure-artifacts/SKILL.digest.md` — H2 templates for all 07-\* artifacts
-3. Read `.github/skills/python-diagrams/SKILL.md` — chart generation conventions (compliance gaps chart only)
-4. Read `.github/skills/context-shredding/SKILL.digest.md` — runtime compression for predecessor artifacts
-5. Read the template files for your artifacts (all in `.github/skills/azure-artifacts/templates/`):
+3. Read `.github/skills/context-shredding/SKILL.digest.md` — runtime compression for predecessor artifacts
+4. Read the template files for your artifacts (all in `.github/skills/azure-artifacts/templates/`):
    - `07-design-document.template.md`
    - `07-operations-runbook.template.md`
    - `07-compliance-matrix.template.md`
@@ -102,7 +101,7 @@ Before starting, validate these artifacts exist in `agent-output/{project}/`:
 | Artifact                         | Required | Purpose                      |
 | -------------------------------- | -------- | ---------------------------- |
 | `01-requirements.md`             | Yes      | Original requirements        |
-| `02-architecture-assessment.md`  | Yes      | WAF assessment and decisions |
+| `02-architecture-assessment.md`  | Yes      | Architecture assessment (resources, key decisions, AVM modules) |
 | `04-implementation-plan.md`      | Yes      | Planned architecture         |
 | `06-deployment-summary.md`       | Yes      | Deployment results           |
 | `04-governance-constraints.md`   | No       | Governance findings          |
@@ -141,7 +140,7 @@ Compact before generating the 7-document suite.
 
 1. **Summarize prior artifacts** — write a single concise message containing:
    - Resource inventory (names, types, SKUs, resource IDs from deployment)
-   - Architecture decisions from `02-architecture-assessment.md` (WAF scores, pattern)
+   - AVM modules and key decisions from `02-architecture-assessment.md`
    - Deployment result from `06-deployment-summary.md` (success/partial, resource count)
    - Compliance requirements from `01-requirements.md`
 2. **Switch to minimal skill loading** — for any further skill reads, use
@@ -155,7 +154,9 @@ Compact before generating the 7-document suite.
 
 **Checkpoint** (MANDATORY): `apex-recall checkpoint <project> 7 phase_2_inventory --json`
 
-Generate these files IN ORDER (each builds on the previous):
+**Generate all 6 documentation files in parallel. Do not wait for one to complete before
+starting the next. Each file is independent and has no dependency on the others.**
+(The `Order` column below is a stable listing order, not a dependency chain.)
 
 | Order | File                        | Content                                                     |
 | ----- | --------------------------- | ----------------------------------------------------------- |
@@ -168,10 +169,8 @@ Generate these files IN ORDER (each builds on the previous):
 
 ### Phase 3: As-Built Charts
 
-Read `.github/skills/python-diagrams/references/waf-cost-charts.md` for chart conventions
-and generate the compliance gaps chart:
-
-- `agent-output/{project}/07-ab-compliance-gaps.py` + `07-ab-compliance-gaps.png` — gap counts by severity
+Generate a horizontal bar chart using matplotlib showing compliance gaps by policy category.
+Save as `07-ab-compliance-gaps.py` and run it to produce `07-ab-compliance-gaps.png`.
 
 Execute the `.py` file and verify the PNG exists before continuing.
 

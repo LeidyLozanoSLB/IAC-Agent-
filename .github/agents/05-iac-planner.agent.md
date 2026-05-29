@@ -47,7 +47,7 @@ handoffs:
     send: true
   - label: "↩ Return to Step 2"
     agent: 03-Architect
-    prompt: "Returning to architecture assessment for re-evaluation. Review `agent-output/{project}/02-architecture-assessment.md` — WAF scores and recommendations may need adjustment."
+    prompt: "Returning to architecture assessment for re-evaluation. Review `agent-output/{project}/02-architecture-assessment.md` — resources, SKUs, and key decisions may need adjustment."
     send: false
   - label: "↩ Return to Orchestrator"
     agent: 01-Orchestrator
@@ -69,7 +69,6 @@ Deny-policy blockers before designing the module structure.
 <output_contract>
 Primary artifact: agent-output/{project}/04-implementation-plan.md — YAML-structured resource
 specs, module inventory, deployment phases, dependency order. H2 structure from template.
-Diagrams: 04-dependency-diagram.py/.png and 04-runtime-diagram.py/.png (Python diagrams library).
 Session state: managed via `apex-recall` CLI — checkpoint after each phase.
 </output_contract>
 
@@ -90,8 +89,7 @@ This agent plans for **Bicep only**. Use Bicep-specific tools and patterns
 1. **Read** `.github/skills/azure-defaults/SKILL.digest.md` — regions, tags, AVM, governance, naming
 2. **Read** `.github/skills/azure-artifacts/SKILL.digest.md` — H2 templates for `04-implementation-plan.md` and `04-governance-constraints.md`
 3. **Read** artifact template files: `azure-artifacts/templates/04-implementation-plan.template.md` + `04-governance-constraints.template.md`
-4. **Read** `.github/skills/python-diagrams/SKILL.digest.md` — diagram conventions, design tokens, Azure component imports
-5. **Bicep patterns skill** (read on-demand during Phase 2):
+4. **Bicep patterns skill** (read on-demand during Phase 2):
    `.github/skills/azure-bicep-patterns/SKILL.md` — hub-spoke, PE, diagnostics, module composition
 
 ## DO / DON'T
@@ -104,17 +102,16 @@ This agent plans for **Bicep only**. Use Bicep-specific tools and patterns
 | Use AVM defaults for SKUs; deprecation research only for overrides                                         | Hardcode SKUs without AVM verification                                |
 | Define tasks as YAML specs (resource, module, dependencies, config)                                        | Proceed to code generation without explicit user approval             |
 | Generate `04-implementation-plan.md`                                                                       | Ignore policy `effect` — `Deny` = blocker, `Audit` = warning only     |
-| Auto-generate `04-dependency-diagram.py/.png` + `04-runtime-diagram.py/.png`                               | Generate governance from best-practice assumptions                    |
-| Match H2 headings from azure-artifacts templates exactly                                                   | Re-run governance discovery (already done in Step 3.5)                |
-| Ask user for deployment strategy — **MANDATORY GATE**                                                      | Add H2 headings not in the template                                   |
-| Use `askQuestions` in Phase 5 to present findings and gather approval                                      |                                                                       |
+| Match H2 headings from azure-artifacts templates exactly                                                   | Generate governance from best-practice assumptions                    |
+| Ask user for deployment strategy — **MANDATORY GATE**                                                      | Re-run governance discovery (already done in Step 3.5)                |
+| Use `askQuestions` in Phase 5 to present findings and gather approval                                      | Add H2 headings not in the template                                   |
 | Update `agent-output/{project}/README.md` — mark Step 4 complete                                           |                                                                       |
 
 ## Prerequisites Check
 
 Validate these files exist in `agent-output/{project}/`:
 
-1. `02-architecture-assessment.md` — resource list, SKU recommendations, WAF scores
+1. `02-architecture-assessment.md` — focused assessment: Resources table, Key Decisions, AVM Modules, Risks/Blockers
 2. `04-governance-constraints.md` — **REQUIRED**. Produced by Step 3.5 (Governance agent)
 3. `04-governance-constraints.json` — **REQUIRED**. Machine-readable policy data
 
@@ -127,8 +124,8 @@ Run `apex-recall show <project> --json` for full project context. Do not read `0
 - **Context budget**: Read `02-architecture-assessment.md` + `04-governance-constraints.json` at startup
 - **My step**: 4
 - **Sub-step checkpoints**: `phase_1_prereqs` → `phase_2_avm` →
-  `phase_3_plan` → `phase_3.5_strategy` → `phase_3.6_compacted` → `phase_4_diagrams` →
-  `phase_5_challenger` → `phase_6_artifact`
+  `phase_3_plan` → `phase_3.5_strategy` → `phase_3.6_compacted` →
+  `phase_6_artifact`   <!-- phase_4_diagrams removed (diagram generation dropped); phase_5_challenger disabled — CH3 -->
 - **Resume**: Use the `apex-recall show` output to detect resume point.
 - **Checkpoints**: `apex-recall checkpoint <project> 4 <phase_name> --json`
 - **Decisions**: `apex-recall decide <project> --key deployment_strategy --value <v> --json`
@@ -171,7 +168,13 @@ step — the user's input feeds directly into Phase 3.5 (Deployment Strategy).
 
 ### Phase 2: AVM Module Verification
 
-For EACH resource in the architecture:
+**Skip-lookup check (do this FIRST):** Read the `## AVM Modules` table in
+`02-architecture-assessment.md`. If that table exists and lists a module name + version for
+**all** requested resources, **skip all external AVM/Learn/web lookups** and use the
+Architect's module list directly. Only perform external lookups (`mcp_bicep_list_avm_metadata`,
+Microsoft Learn, web) for resources **not** covered by the Architect's table.
+
+For EACH resource NOT already covered by the Architect's AVM Modules table:
 
 1. Query `mcp_bicep_list_avm_metadata` for AVM availability
 2. If AVM exists → use it, trust default SKUs
@@ -223,59 +226,51 @@ Generate structured plan with YAML specs per resource (resource, module, SKU,
 dependencies, config, tags, naming).
 
 Include: resource inventory, module structure, tasks in dependency order,
-deployment phases (from Phase 3.5 choice), diagram artifacts
-(`04-dependency-diagram.py/.png`, `04-runtime-diagram.py/.png` using Python `diagrams` library),
-naming conventions table, security config matrix, estimated time.
+deployment phases (from Phase 3.5 choice), naming conventions table,
+security config matrix, estimated time.
 
 Module structure is `main.bicep` + `modules/`.
 
 > **Important**: The plan must include an Azure Budget resource
-> (`Microsoft.Consumption/budgets`) with amount aligned to the Step 2 cost estimate,
+> (`Microsoft.Consumption/budgets`) with amount set to a reasonable default for the environment tier,
 > plus Forecast alerts at 80%/100%/120% thresholds and Anomaly Detection.
 > See `.github/instructions/references/iac-cost-monitoring.md`.
 
-### Phase 4.3–4.4: Adversarial Plan Review (2 lenses max)
+### Phase 4.3–4.4: Adversarial Plan Review — DISABLED
 
-Read `azure-defaults/references/adversarial-review-protocol.md` for lens table,
-prior_findings format, and invocation template.
-Check `decisions.complexity` from `apex-recall show <project> --json`
-to determine pass count
-per the review matrix in `adversarial-review-protocol.md`.
+> **Challenger disabled for performance — re-enable via `workflow-graph.json`
+> `metadata.challenger_enabled` for complex greenfield deployments if needed.**
+> No adversarial/challenger review runs at this step. Proceed directly to the approval gate.
 
-> **Governance review is NOT needed here** — it was already done in Step 3.5.
-> Plan reviews focus on **security-governance** and **architecture-reliability** only.
+<!-- The original complexity-routed plan review is preserved here (commented) for re-enablement:
 
-Request adversarial review on `04-implementation-plan.md` via the standalone
-10-Challenger agent (up to 2 passes: security-governance + architecture-reliability).
-Follow the conditional pass rules from `adversarial-review-protocol.md` —
-skip pass 2 if pass 1 has 0 `must_fix` and <2 `should_fix`.
+Read `azure-defaults/references/adversarial-review-protocol.md` for lens table and invocation template.
+Plan reviews focus on security-governance and architecture-reliability only (governance already done Step 3.5).
+Request adversarial review on 04-implementation-plan.md via the standalone 10-Challenger agent
+(up to 2 passes: security-governance + architecture-reliability). Conditional skip: skip pass 2 if
+pass 1 has 0 must_fix and <2 should_fix. Write results to challenge-findings-plan-pass{N}.json.
+Review audit: apex-recall review-audit <project> 4 --passes-executed <N> --json
+-->
 
-Write results to `agent-output/{project}/challenge-findings-plan-pass{N}.json`.
-
-**Review audit** (MANDATORY): `apex-recall review-audit <project> 4 --passes-executed <N> --json`
+**Review audit** (MANDATORY): `apex-recall review-audit <project> 4 --passes-executed 0 --json`
 
 ### Phase 5: Approval Gate
 
-**Present findings directly in chat** before asking the user to decide:
+**Present the plan summary directly in chat** before asking the user to decide:
 
 1. Print plan summary: resource count (AVM vs custom/raw), governance
-   blockers/warnings, deployment strategy, estimated time
-2. For each challenger pass, render a markdown table with columns:
-   **ID**, **Severity**, **Title**, **WAF Pillar**, **Recommendation**
-   — list every finding (must_fix first, then should_fix, then suggestion)
-3. Show aggregate totals: `N must-fix, N should-fix`
-4. Reference the JSON file paths for machine-readable details
+   blockers/warnings, deployment strategy, estimated time.
+   (Challenger findings are omitted — challenger disabled for performance.)
 
 Then use `askQuestions` to gather the decision:
 
-- Question description: `"Challenger found N must-fix and N should-fix. See details in chat above. Revise or proceed?"`
+- Question description: `"Plan ready. Review the summary above. Revise or proceed?"`
 - Ask a single-select question: _"How would you like to proceed?"_
   with options:
-  1. **Revise plan** — address must-fix findings before proceeding
-     (recommended if any must-fix findings exist, mark as `recommended`)
-  2. **Proceed to Code Generation** — accept findings as-is and move to Step 5
+  1. **Revise plan** — adjust resources, modules, or deployment strategy
+  2. **Proceed to Code Generation** — accept the plan and move to Step 5
 - If the user chooses to revise: apply fixes to
-  `04-implementation-plan.md`, re-run the challenger review, then repeat
+  `04-implementation-plan.md`, then repeat this gate
 - If the user chooses to proceed: present final handoff to the Bicep CodeGen agent
   **On completion** (MANDATORY): `apex-recall complete-step <project> 4 --json`
 
@@ -284,10 +279,6 @@ Then use `askQuestions` to gather the decision:
 | File                      | Location                                           |
 | ------------------------- | -------------------------------------------------- |
 | Implementation Plan       | `agent-output/{project}/04-implementation-plan.md` |
-| Dependency Diagram Source | `agent-output/{project}/04-dependency-diagram.py`  |
-| Dependency Diagram Image  | `agent-output/{project}/04-dependency-diagram.png` |
-| Runtime Diagram Source    | `agent-output/{project}/04-runtime-diagram.py`     |
-| Runtime Diagram Image     | `agent-output/{project}/04-runtime-diagram.png`    |
 
 > **Note**: `04-governance-constraints.md/.json` are produced by Step 3.5 (Governance agent),
 > not by this agent. They are consumed as prerequisites.
@@ -300,7 +291,7 @@ Include attribution header from the template file (do not hardcode).
 
 ## Boundaries
 
-- **Always**: Read governance constraints, verify AVM modules, ask deployment strategy, generate Python diagrams
+- **Always**: Read governance constraints, verify AVM modules, ask deployment strategy
 - **Ask first**: Non-standard phase groupings, deviation from architecture assessment
 - **Never**: Write IaC code, re-run governance discovery, assume deployment strategy
 
@@ -316,7 +307,6 @@ Include attribution header from the template file (do not hardcode).
 - [ ] Security configuration includes managed identity where applicable
 - [ ] Approval gate presented before handoff
 - [ ] Implementation plan and governance artifacts saved to `agent-output/{project}/`
-- [ ] Diagrams generated and referenced in plan
 
 <example title="Dependency ordering for phased deployment">
 Input: App Service, SQL Database, Key Vault, VNet, Private Endpoints. Strategy: phased.
